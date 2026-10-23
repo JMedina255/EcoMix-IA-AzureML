@@ -1,0 +1,6 @@
+{
+    "subscription_id": "TU_AZURE_SUBSCRIPTION_ID_AQUI",
+    "resource_group": "EcomixIA",
+    "workspace_name": "ecomix-ia-ml",
+    "compute_name": "cpu-cluster-ecomix"
+}

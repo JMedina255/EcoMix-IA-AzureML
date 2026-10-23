@@ -1,0 +1,116 @@
+{
+  "dataset_name": "UCI Concrete Compressive Strength",
+  "dataset_id_uci": 165,
+  "random_seed": 42,
+  "split_ratio": {
+    "train": 0.8,
+    "test": 0.2
+  },
+  "total_observations": 1030,
+  "train_observations": 824,
+  "test_observations": 206,
+  "columns_count": 9,
+  "null_values_count": {
+    "Cement": 0,
+    "Blast Furnace Slag": 0,
+    "Fly Ash": 0,
+    "Water": 0,
+    "Superplasticizer": 0,
+    "Coarse Aggregate": 0,
+    "Fine Aggregate": 0,
+    "Age": 0,
+    "Concrete compressive strength": 0
+  },
+  "duplicated_rows_count": 25,
+  "input_features": [
+    "cement",
+    "blast_furnace_slag",
+    "fly_ash",
+    "water",
+    "superplasticizer",
+    "coarse_aggregate",
+    "fine_aggregate",
+    "age"
+  ],
+  "target_variable": "concrete_compressive_strength",
+  "target_unit": "MPa",
+  "age_distribution": {
+    "1": 2,
+    "3": 134,
+    "7": 126,
+    "14": 62,
+    "28": 425,
+    "56": 91,
+    "90": 54,
+    "91": 22,
+    "100": 52,
+    "120": 3,
+    "180": 26,
+    "270": 13,
+    "360": 6,
+    "365": 14
+  },
+  "target_statistics": {
+    "min": 2.33,
+    "max": 82.6,
+    "mean": 35.817961165048544,
+    "std": 16.705741961912512
+  },
+  "column_dictionary": {
+    "Cement": {
+      "clean_name": "cement",
+      "type": "input",
+      "unit": "kg/m^3",
+      "description": "Cantidad de cemento en la mezcla"
+    },
+    "Blast Furnace Slag": {
+      "clean_name": "blast_furnace_slag",
+      "type": "input",
+      "unit": "kg/m^3",
+      "description": "Escoria de alto horno"
+    },
+    "Fly Ash": {
+      "clean_name": "fly_ash",
+      "type": "input",
+      "unit": "kg/m^3",
+      "description": "Ceniza volante"
+    },
+    "Water": {
+      "clean_name": "water",
+      "type": "input",
+      "unit": "kg/m^3",
+      "description": "Agua de mezclado"
+    },
+    "Superplasticizer": {
+      "clean_name": "superplasticizer",
+      "type": "input",
+      "unit": "kg/m^3",
+      "description": "Aditivo superplastificante"
+    },
+    "Coarse Aggregate": {
+      "clean_name": "coarse_aggregate",
+      "type": "input",
+      "unit": "kg/m^3",
+      "description": "Agregado grueso (grava)"
+    },
+    "Fine Aggregate": {
+      "clean_name": "fine_aggregate",
+      "type": "input",
+      "unit": "kg/m^3",
+      "description": "Agregado fino (arena)"
+    },
+    "Age": {
+      "clean_name": "age",
+      "type": "input",
+      "unit": "days",
+      "description": "Edad de curado del concreto (1-365 días)"
+    },
+    "Concrete compressive strength": {
+      "clean_name": "concrete_compressive_strength",
+      "type": "target",
+      "unit": "MPa",
+      "description": "Resistencia a la compresión del concreto (variable objetivo)"
+    }
+  },
+  "functional_decision_age": "La edad del concreto ('age') es una variable de entrada esencial del modelo. Para estimar la resistencia a 7 y 28 días, el sistema debe evaluar la misma mezcla configurando age=7 y age=28 respectivamente. No representa una garantía estructural, sino una estimación estadística basada en el histórico experimental."
+}

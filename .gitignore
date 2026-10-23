@@ -1,0 +1,29 @@
+# Configuración sensible con credenciales o IDs de nube
+config.json
+.env
+
+# Entornos virtuales
+venv/
+.venv/
+env/
+
+# Python cache y compilados
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Modelos binarios y artefactos pesados (descargados de Azure)
+models/
+*.pkl
+*.joblib
+*.onnx
+
+# Reportes temporales locales
+reports/*.png
+
+# IDEs y sistemas operativos
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
