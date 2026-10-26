@@ -2,8 +2,11 @@
 
 Portal de arquitectura técnica y diagramas de flujo interactivos para el proyecto **EcoMix IA**, generados y validados con [Archify 3.2](https://github.com/tt-a1i/archify).
 
-El proyecto se fundamenta en el documento oficial de ingeniería y diseño de producto:  
-📄 [**FD02-EPIS — Informe Visión de Proyecto: EcoMix IA**](../FD02-EPIS-Informe_Vision_EcoMixIA.md) (Versión 1.0, 12/10/2026), formulado en el marco del **Reto 2 de Yura S.A.** para la **Hackathon Innova Sur 2026** (asignatura Programación Web II, Universidad Privada de Tacna; autores: Joel Adrián Guillén Laveriano y Joan Cristian Medina Quispe; docente: Mtro. Enrique Félix Lanchipa Valencia).
+El proyecto se fundamenta en los documentos oficiales de ingeniería y diseño de producto:  
+- 📄 [**FD02-EPIS — Informe Visión de Proyecto: EcoMix IA**](../FD02-EPIS-Informe_Vision_EcoMixIA.md) (Versión 1.0, 12/10/2026): Alcance, problemática del diseño con cementos adicionados, fórmulas analíticas de sostenibilidad y aislamiento del predictor ML.
+- 📋 [**FD03-EPIS — Informe SRS de Proyecto: EcoMix IA**](../FD03-EPIS-Informe_SRS_EcoMixIA_v0.1.md) (Versión 0.1, 26/10/2026): Especificación formal de requerimientos de software (M01–M08), atributos de calidad ISO/IEC 25010, reglas de negocio RN-01 a RN-12 y modelos conceptuales/lógicos UML (Casos de uso CU-01 a CU-08, diagramas de actividades, secuencia y clases).
+
+Formulados en el marco del **Reto 2 de Yura S.A.** para la **Hackathon Innova Sur 2026** (asignatura Programación Web II, Universidad Privada de Tacna; autores: Joel Adrián Guillén Laveriano y Joan Cristian Medina Quispe; docente: Mtro. Enrique Félix Lanchipa Valencia).
 
 ---
 
@@ -11,9 +14,10 @@ El proyecto se fundamenta en el documento oficial de ingeniería y diseño de pr
 
 ```text
 docs/
-├── FD02-EPIS-Informe_Vision_EcoMixIA.md # Documento maestro de visión y especificación funcional v1.0
+├── FD02-EPIS-Informe_Vision_EcoMixIA.md     # Documento maestro de visión y especificación funcional v1.0
+├── FD03-EPIS-Informe_SRS_EcoMixIA_v0.1.md   # Especificación de Requerimientos de Software (SRS v0.1)
 └── archify/
-    ├── index.html                       # Portal interactivo principal (Página de inicio responsive)
+    ├── index.html                           # Portal interactivo principal (Página de inicio responsive)
     ├── diagrams/                        # Artefactos HTML interactivos y recibos de entrega
     │   ├── 02-arquitectura-general.html # Diagrama D02: Arquitectura General del Sistema
     │   ├── 03-flujo-ingeniero.html      # Diagrama D03: Flujo Funcional del Ingeniero

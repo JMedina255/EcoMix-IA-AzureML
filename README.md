@@ -51,6 +51,7 @@ ML EcomixIA/
 │       └── test/                   # Definición MLTable para prueba independiente
 ├── docs/
 │   ├── FD02-EPIS-Informe_Vision_EcoMixIA.md # Documento maestro de visión del proyecto v1.0 (Reto 2 Yura S.A.)
+│   ├── FD03-EPIS-Informe_SRS_EcoMixIA_v0.1.md # Especificación de Requerimientos de Software (SRS v0.1)
 │   └── archify/                    # Portal interactivo de arquitectura con Archify 3.2
 │       ├── index.html              # Portal principal de documentación técnica
 │       ├── diagrams/               # Diagramas interactivos HTML (D02, D03)
@@ -112,13 +113,18 @@ ML EcomixIA/
 
 ---
 
-## 🏛️ 6. Documentación Visual e Interactiva (Archify)
+## 🏛️ 6. Documentación de Ingeniería y Arquitectura (FD02, FD03 y Archify)
 
-El proyecto cuenta con un portal interactivo de arquitectura técnica y flujos funcionales desarrollado con **Archify 3.2**, fundamentado en el informe [**FD02-EPIS: Informe Visión de Proyecto**](docs/FD02-EPIS-Informe_Vision_EcoMixIA.md) (Reto 2 Yura S.A. Hackathon Innova Sur 2026, UPT):
+El proyecto cuenta con una base documental formal desarrollada en el marco del **Reto 2 de Yura S.A.** para la **Hackathon Innova Sur 2026** (asignatura Programación Web II, Universidad Privada de Tacna):
 
-- 🌐 **[Portal Principal de Documentación](docs/archify/index.html)**: Visión global del sistema, matriz de auditoría de componentes, fórmulas analíticas de sostenibilidad y roles arquitectónicos.
-- 🏗️ **[D02 — Arquitectura General del Sistema](docs/archify/diagrams/02-arquitectura-general.html)**: Mapa integral de la solución (plataforma web, persistencia, optimización, cálculo de sostenibilidad y Azure ML).
-- 🔄 **[D03 — Flujo Funcional del Ingeniero](docs/archify/diagrams/03-flujo-ingeniero.html)**: Diagrama de carriles interactivo desde el acceso y selección de insumos hasta la inferencia predictiva dual (7d/28d), contraste ACI 211, explicación IA y dossier PDF.
+### 📄 Documentos de Ingeniería de Software
+- 📑 [**FD02-EPIS — Informe Visión de Proyecto (v1.0)**](docs/FD02-EPIS-Informe_Vision_EcoMixIA.md): Define el alcance, necesidades de interesados, aislamiento físico del predictor ML (UCI 165), fórmulas analíticas de sostenibilidad ($\text{S/./m}^3$ y $\text{kg CO}_2\text{e/m}^3$ con distinción estricta $a/c$ vs $a/mc$) y la precedencia de desarrollo (P1 MVP $\rightarrow$ P2 Demostración $\rightarrow$ P3 Azure).
+- 📋 [**FD03-EPIS — Especificación de Requerimientos de Software - SRS (v0.1)**](docs/FD03-EPIS-Informe_SRS_EcoMixIA_v0.1.md): Formaliza el levantamiento de procesos (actual vs. propuesto), desglose modular (M01 Identidad a M08 Reportes), 10 requerimientos no funcionales bajo **ISO/IEC 25010** (latencia de predicción $< 2\text{ s}$, optimización $< 10\text{ s}$, integridad N09), 12 reglas de negocio (**RN-01 a RN-12**) y modelos conceptuales/lógicos (**UML:** Casos de uso CU-01 a CU-08, diagramas de actividades, secuencia y clases).
+
+### 🌐 Portal Interactivo y Diagramas Archify 3.2
+- 🌐 **[Portal Principal de Documentación](docs/archify/index.html)**: Visión global del sistema, matriz de auditoría técnica con referencias cruzadas a FD02/FD03 y roles arquitectónicos.
+- 🏗️ **[D02 — Arquitectura General del Sistema](docs/archify/diagrams/02-arquitectura-general.html)**: Mapa integral de la solución (plataforma web MVC, persistencia relacional, optimización, cálculo de sostenibilidad y Azure ML).
+- 🔄 **[D03 — Flujo Funcional del Ingeniero](docs/archify/diagrams/03-flujo-ingeniero.html)**: Diagrama de carriles interactivo (*swimlanes*) desde el acceso y selección de insumos hasta la inferencia predictiva dual (7d/28d), contraste ACI PRC-211.1-22, explicación IA y dossier PDF.
 
 Para instrucciones completas de validación y regeneración de diagramas, consulta [`docs/archify/README.md`](docs/archify/README.md).
 
