@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "494c7c55-5ec1-44c5-a9dd-93c8de4d13b5",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "C:\\Users\\Admin\\Desktop\\Proyectos\\ML EcomixIA\\docs\\archify\\sources\\03-flujo-ingeniero.json",
+  "output": "C:\\Users\\Admin\\Desktop\\Proyectos\\ML EcomixIA\\docs\\archify\\diagrams\\03-flujo-ingeniero.html",
+  "specification": {
+    "sha256": "50b17711339f4bb9f9075b83b47f8ca9237d2655a502bd0915e2f92600c27b63",
+    "bytes": 11557
+  },
+  "artifact": {
+    "sha256": "86ec59eb3d9816e5fc29fb63da3e7882e45a538c55d4e6eeb0931b64fe8bf855",
+    "bytes": 874026
+  }
+}

@@ -1,0 +1,474 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "EcoMix IA — Flujo Funcional del Ingeniero",
+    "locale": "es",
+    "output": "docs/archify/diagrams/03-flujo-ingeniero.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/JMedina255/EcoMix-IA-AzureML.git",
+      "revision": "38fde87d07451b1f7bba1eadbbf17782e40edcd7",
+      "provider": "github",
+      "link_mode": "web"
+    }
+  },
+  "lanes": [
+    {
+      "id": "user_actor",
+      "label": "Ingeniero (Usuario)"
+    },
+    {
+      "id": "web_app",
+      "label": "Plataforma Web EcoMix IA"
+    },
+    {
+      "id": "opt_engine",
+      "label": "Motor de Optimización y Sostenibilidad"
+    },
+    {
+      "id": "ml_ai",
+      "label": "Predictor ML y Asistente IA"
+    },
+    {
+      "id": "exceptions",
+      "label": "Rutas de Control & Excepciones",
+      "variant": "exception"
+    }
+  ],
+  "phases": [
+    {
+      "id": "phase_intake",
+      "label": "Captura y Validación",
+      "fromCol": 0,
+      "toCol": 1,
+      "variant": "default"
+    },
+    {
+      "id": "phase_ml_opt",
+      "label": "Predicción ML y Optimización",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "phase_eval_delivery",
+      "label": "Análisis y Reportes",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "groups": [
+    {
+      "id": "grp_inputs",
+      "label": "Interacción del Ingeniero",
+      "lane": "user_actor",
+      "fromCol": 0,
+      "toCol": 1,
+      "variant": "default"
+    },
+    {
+      "id": "grp_ml",
+      "label": "Predictor ML (Azure)",
+      "lane": "ml_ai",
+      "fromCol": 2,
+      "toCol": 2,
+      "variant": "emphasis"
+    },
+    {
+      "id": "grp_opt",
+      "label": "Simulación Técnica",
+      "lane": "opt_engine",
+      "fromCol": 3,
+      "toCol": 4,
+      "variant": "emphasis"
+    },
+    {
+      "id": "grp_exceptions",
+      "label": "Excepciones y Alertas",
+      "lane": "exceptions",
+      "fromCol": 0,
+      "toCol": 4,
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "step_login",
+    "step_catalog",
+    "step_inputs",
+    "step_validate",
+    "step_ml_prep",
+    "step_ml_predict",
+    "step_optimize",
+    "step_sustainability",
+    "step_aci_compare",
+    "step_ai_assistant",
+    "step_present",
+    "step_save_db",
+    "step_export_pdf"
+  ],
+  "nodes": [
+    {
+      "id": "step_login",
+      "lane": "user_actor",
+      "col": 0,
+      "type": "external",
+      "label": "Inicio Sesión",
+      "sublabel": "RF01",
+      "tag": "Propuesto",
+      "width": 132
+    },
+    {
+      "id": "step_catalog",
+      "lane": "web_app",
+      "col": 0,
+      "type": "frontend",
+      "label": "Catálogo Insumos",
+      "sublabel": "RF02",
+      "tag": "MVC",
+      "width": 132
+    },
+    {
+      "id": "step_err_params",
+      "lane": "exceptions",
+      "col": 0,
+      "type": "security",
+      "label": "Error Entrada",
+      "sublabel": "Corrección",
+      "tag": "Alerta",
+      "icon": "decision",
+      "width": 132
+    },
+    {
+      "id": "step_inputs",
+      "lane": "user_actor",
+      "col": 1,
+      "type": "frontend",
+      "label": "Registro Mezcla",
+      "sublabel": "f'c, a/c, a/mc",
+      "tag": "MVC",
+      "width": 132
+    },
+    {
+      "id": "step_validate",
+      "lane": "web_app",
+      "col": 1,
+      "type": "security",
+      "label": "Validar Entrada",
+      "sublabel": "Límites físicos",
+      "tag": "MVC",
+      "width": 132
+    },
+    {
+      "id": "step_ml_prep",
+      "lane": "web_app",
+      "col": 2,
+      "type": "backend",
+      "label": "Vector Insumos",
+      "sublabel": "UCI 8 features",
+      "tag": "Dataset",
+      "width": 132
+    },
+    {
+      "id": "step_ml_predict",
+      "lane": "ml_ai",
+      "col": 2,
+      "type": "backend",
+      "label": "Inferencia ML",
+      "sublabel": "f'c a 7d y 28d (RF04)",
+      "tag": "AutoML",
+      "sources": [
+        {
+          "path": "src/train_automl.py",
+          "line": 46,
+          "end_line": 78,
+          "label": "AutoML Model"
+        }
+      ],
+      "width": 132
+    },
+    {
+      "id": "step_err_ml",
+      "lane": "exceptions",
+      "col": 2,
+      "type": "security",
+      "label": "Fallo Predictor",
+      "sublabel": "Parada segura",
+      "tag": "Control",
+      "icon": "stop",
+      "width": 132
+    },
+    {
+      "id": "step_optimize",
+      "lane": "opt_engine",
+      "col": 3,
+      "type": "backend",
+      "label": "Optimización",
+      "sublabel": "P1: ≥3 mezclas",
+      "tag": "Propuesto",
+      "width": 132
+    },
+    {
+      "id": "step_sustainability",
+      "lane": "web_app",
+      "col": 3,
+      "type": "backend",
+      "label": "Cálculo Costo/CO₂",
+      "sublabel": "S/. y kg CO₂e/m³",
+      "tag": "C#",
+      "width": 132
+    },
+    {
+      "id": "step_err_unfeasible",
+      "lane": "exceptions",
+      "col": 3,
+      "type": "security",
+      "label": "No Admisible",
+      "sublabel": "Sin alternativas",
+      "tag": "Control",
+      "icon": "stop",
+      "width": 132
+    },
+    {
+      "id": "step_aci_compare",
+      "lane": "opt_engine",
+      "col": 4,
+      "type": "backend",
+      "label": "Contraste ACI",
+      "sublabel": "ACI PRC-211.1",
+      "tag": "Norma",
+      "width": 132
+    },
+    {
+      "id": "step_ai_assistant",
+      "lane": "ml_ai",
+      "col": 4,
+      "type": "external",
+      "label": "Asistente IA",
+      "sublabel": "Claude/OpenAI",
+      "tag": "Propuesto",
+      "width": 132
+    },
+    {
+      "id": "step_warn_ai",
+      "lane": "exceptions",
+      "col": 4,
+      "type": "messagebus",
+      "label": "Aviso Fallo IA",
+      "sublabel": "Continuidad",
+      "tag": "Alerta",
+      "width": 132
+    },
+    {
+      "id": "step_present",
+      "lane": "user_actor",
+      "col": 5,
+      "type": "frontend",
+      "label": "Presentar Mezclas",
+      "sublabel": "Comparativa",
+      "tag": "Propuesto",
+      "width": 132
+    },
+    {
+      "id": "step_save_db",
+      "lane": "web_app",
+      "col": 5,
+      "type": "database",
+      "label": "Guardar Datos",
+      "sublabel": "RF08 (Historial)",
+      "tag": "SQL",
+      "width": 132
+    },
+    {
+      "id": "step_export_pdf",
+      "lane": "opt_engine",
+      "col": 5,
+      "type": "backend",
+      "label": "Exportar Dossier",
+      "sublabel": "RF08 (PDF)",
+      "tag": "Propuesto",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-login-catalog",
+      "from": "step_login",
+      "to": "step_catalog",
+      "variant": "default",
+      "role": "main"
+    },
+    {
+      "id": "edge-catalog-inputs",
+      "from": "step_catalog",
+      "to": "step_inputs",
+      "variant": "default",
+      "role": "main"
+    },
+    {
+      "id": "edge-inputs-validate",
+      "from": "step_inputs",
+      "to": "step_validate",
+      "label": "Validar",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "edge-validate-mlprep",
+      "from": "step_validate",
+      "to": "step_ml_prep",
+      "label": "Válido",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "edge-validate-err",
+      "from": "step_validate",
+      "to": "step_err_params",
+      "label": "Inválido",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "edge-err-params-return",
+      "from": "step_err_params",
+      "to": "step_inputs",
+      "label": "Corregir",
+      "variant": "dashed",
+      "role": "return",
+      "fromSide": "left",
+      "toSide": "top",
+      "via": [
+        [20, 655],
+        [20, 60],
+        [254, 60]
+      ]
+    },
+    {
+      "id": "edge-mlprep-predict",
+      "from": "step_ml_prep",
+      "to": "step_ml_predict",
+      "label": "age=7, 28",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "edge-predict-opt",
+      "from": "step_ml_predict",
+      "to": "step_optimize",
+      "label": "f'c (MPa)",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "edge-predict-err",
+      "from": "step_ml_predict",
+      "to": "step_err_ml",
+      "label": "Fallo ML",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "edge-opt-sust",
+      "from": "step_optimize",
+      "to": "step_sustainability",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "edge-opt-err",
+      "from": "step_optimize",
+      "to": "step_err_unfeasible",
+      "label": "Inviable",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "edge-sust-aci",
+      "from": "step_sustainability",
+      "to": "step_aci_compare",
+      "label": "Costo y CO₂",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "edge-aci-ai",
+      "from": "step_aci_compare",
+      "to": "step_ai_assistant",
+      "label": "Resultados",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "edge-ai-present",
+      "from": "step_ai_assistant",
+      "to": "step_present",
+      "label": "Explicación",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "edge-ai-err",
+      "from": "step_ai_assistant",
+      "to": "step_warn_ai",
+      "label": "Fallo IA",
+      "variant": "security",
+      "role": "error"
+    },
+    {
+      "id": "edge-warn-ai-branch",
+      "from": "step_warn_ai",
+      "to": "step_present",
+      "label": "Continuar",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "edge-present-save",
+      "from": "step_present",
+      "to": "step_save_db",
+      "label": "Guardar",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "edge-save-export",
+      "from": "step_save_db",
+      "to": "step_export_pdf",
+      "label": "PDF",
+      "variant": "default",
+      "role": "main"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Reglas de Predicción ML (RF04 — FD02 §4.1, §7)",
+      "items": [
+        "El modelo predictivo (UCI 165) recibe 8 variables físicas de insumos (kg/m³) más la edad de curado en días.",
+        "Predicción dual 7d y 28d: se evalúa la misma dosificación fijando age=7 y age=28 días (meta FD02: R² ≥ 0.85, latencia < 2 s).",
+        "La resistencia objetivo f'c es un criterio y restricción del optimizador, no una variable de entrada del modelo UCI."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Optimización y Sostenibilidad (RF05, RF06 — FD02 §4.4)",
+      "items": [
+        "Generación de ≥3 alternativas de mezcla sustituyendo clinker por adiciones minerales (escoria, ceniza volante) en < 10 s.",
+        "Fórmulas analíticas (FD02 §4.4): Costo = Σ(cant_i × precio_i) en S/./m³ y CO₂e = Σ(cant_i × factor_i) en kg CO₂e/m³.",
+        "Distinción estricta entre relación agua/cemento (a/c) y agua/material cementante (a/mc) ante uso de adiciones.",
+        "Contraste normativo referencial con tablas ACI PRC-211.1-22 (no sustituye ensayos ni certificación física en obra)."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Gobernanza y Asistente IA (RF07, RF08 — R-09, N09)",
+      "items": [
+        "Gobernanza R-09: El asistente IA (Claude/OpenAI) interpreta resultados calculados; nunca altera ni inventa cifras numéricas.",
+        "Tolerancia a fallos: Si la API de IA no responde, el flujo continúa y entrega resultados numéricos y gráficos sin bloqueo.",
+        "Trazabilidad N09 e Historial: Cada diseño persiste parámetros, resultados y versión del modelo en BD SQL Server y genera PDF."
+      ]
+    }
+  ]
+}

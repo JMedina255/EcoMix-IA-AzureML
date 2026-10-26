@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "workflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "C:\\Users\\Admin\\Desktop\\Proyectos\\ML EcomixIA\\docs\\archify\\sources\\03-flujo-ingeniero.json",
+    "sha256": "50b17711339f4bb9f9075b83b47f8ca9237d2655a502bd0915e2f92600c27b63",
+    "bytes": 11557
+  },
+  "artifact": {
+    "path": "C:\\Users\\Admin\\Desktop\\Proyectos\\ML EcomixIA\\docs\\archify\\diagrams\\03-flujo-ingeniero.html",
+    "sha256": "86ec59eb3d9816e5fc29fb63da3e7882e45a538c55d4e6eeb0931b64fe8bf855",
+    "bytes": 874026
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "C:\\Users\\Admin\\Desktop\\Proyectos\\ML EcomixIA\\docs\\archify\\diagrams\\03-flujo-ingeniero.finalize.json",
+    "summaryReceipt": "C:\\Users\\Admin\\Desktop\\Proyectos\\ML EcomixIA\\docs\\archify\\diagrams\\03-flujo-ingeniero.finalize-summary.json",
+    "browserCheckReceipt": "C:\\Users\\Admin\\Desktop\\Proyectos\\ML EcomixIA\\docs\\archify\\diagrams\\03-flujo-ingeniero.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-26T16:35:41.332Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 9922,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

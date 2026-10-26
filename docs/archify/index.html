@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoMix IA — Arquitectura y Funcionamiento</title>
+  <style>
+    :root {
+      --primary: #059669;
+      --primary-dark: #065f46;
+      --primary-light: #d1fae5;
+      --primary-accent: #10b981;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --verified: #10b981;
+      --partial: #f59e0b;
+      --proposed: #6366f1;
+      --unverified: #94a3b8;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+      color: #ffffff;
+      padding: 3.5rem 1.5rem;
+      text-align: center;
+      border-bottom: 4px solid var(--primary-accent);
+    }
+
+    .badge-header {
+      display: inline-block;
+      background-color: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      margin-bottom: 1rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      backdrop-filter: blur(4px);
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.025em;
+    }
+
+    header p {
+      font-size: 1.15rem;
+      max-width: 820px;
+      margin: 0 auto;
+      color: #e2e8f0;
+      font-weight: 400;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem;
+    }
+
+    .section-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .section-desc {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      margin-bottom: 2rem;
+    }
+
+    /* Vision Document Hero Card */
+    .vision-card {
+      background: linear-gradient(to right, #ecfdf5, #f0fdf4);
+      border: 1px solid #a7f3d0;
+      border-left: 6px solid var(--primary);
+      border-radius: 12px;
+      padding: 1.75rem 2rem;
+      margin-bottom: 3rem;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .vision-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .vision-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .vision-meta {
+      font-size: 0.85rem;
+      color: #047857;
+      font-weight: 600;
+      background: rgba(16, 185, 129, 0.15);
+      padding: 0.3rem 0.75rem;
+      border-radius: 6px;
+    }
+
+    .vision-body {
+      font-size: 0.95rem;
+      color: #334155;
+      line-height: 1.6;
+    }
+
+    .vision-highlights {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .vision-pill-box {
+      background: #ffffff;
+      border: 1px solid #d1fae5;
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      font-size: 0.85rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .vision-pill-box strong {
+      color: var(--primary-dark);
+      display: block;
+      margin-bottom: 0.25rem;
+      font-size: 0.9rem;
+    }
+
+    .btn-vision-doc {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background-color: var(--primary);
+      color: #ffffff;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.6rem 1.25rem;
+      border-radius: 8px;
+      align-self: flex-start;
+      transition: background-color 0.15s ease, transform 0.1s ease;
+    }
+
+    .btn-vision-doc:hover {
+      background-color: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+
+    /* Diagram Grid */
+    .grid-diagrams {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 2rem;
+      margin-bottom: 3.5rem;
+    }
+
+    .diagram-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .diagram-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+      border-color: var(--primary-accent);
+    }
+
+    .card-banner {
+      background: #f1f5f9;
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-banner .tag-type {
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+    }
+
+    .card-banner .status-badge {
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      background: #e2e8f0;
+      color: #334155;
+    }
+
+    .status-badge.ready {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .card-body {
+      padding: 1.5rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-body h3 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 0.75rem;
+    }
+
+    .card-body p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 1.25rem;
+      flex: 1;
+    }
+
+    .rf-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .rf-pill {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+    }
+
+    .card-footer {
+      padding: 1rem 1.5rem;
+      background: #fafafa;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background-color: var(--primary);
+      color: #ffffff;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.55rem 1.1rem;
+      border-radius: 8px;
+      transition: background-color 0.15s ease;
+    }
+
+    .btn-action:hover {
+      background-color: var(--primary-dark);
+    }
+
+    .btn-source {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .btn-source:hover {
+      color: var(--text-main);
+      text-decoration: underline;
+    }
+
+    /* Core Architectural Callout */
+    .ml-role-section {
+      background: var(--surface);
+      border-left: 5px solid var(--primary);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 3.5rem;
+      box-shadow: var(--shadow);
+    }
+
+    .ml-role-section h2 {
+      font-size: 1.5rem;
+      color: var(--primary-dark);
+      margin-bottom: 1rem;
+    }
+
+    .ml-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.25rem;
+    }
+
+    .ml-box {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+
+    .ml-box h4 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .ml-box ul {
+      list-style-type: disc;
+      padding-left: 1.25rem;
+      font-size: 0.9rem;
+      color: #334155;
+    }
+
+    .ml-box ul li {
+      margin-bottom: 0.4rem;
+    }
+
+    /* Audit Table */
+    .audit-section {
+      background: var(--surface);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      padding: 2rem;
+      margin-bottom: 3.5rem;
+    }
+
+    .table-responsive {
+      overflow-x: auto;
+      margin-top: 1.25rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    th, td {
+      padding: 0.85rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background-color: #f8fafc;
+      font-weight: 600;
+      color: #475569;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .tag-state {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.25rem 0.55rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .tag-state.verificado {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .tag-state.parcial {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .tag-state.propuesto {
+      background: #e0e7ff;
+      color: #3730a3;
+    }
+
+    .tag-state.noverificado {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    /* Future Diagrams */
+    .grid-future {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 3.5rem;
+    }
+
+    .future-card {
+      background: var(--surface);
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      padding: 1.25rem;
+      opacity: 0.9;
+    }
+
+    .future-card h4 {
+      font-size: 1.05rem;
+      color: #334155;
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .future-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    footer {
+      background: #0f172a;
+      color: #94a3b8;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      font-size: 0.9rem;
+      border-top: 1px solid #1e293b;
+    }
+
+    footer a {
+      color: var(--primary-accent);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="badge-header">Portal de Documentación Interactiva • Archify 3.2</div>
+    <h1>🌱 EcoMix IA — Arquitectura y Funcionamiento</h1>
+    <p>Plataforma inteligente para el diseño, simulación y optimización de mezclas de concreto ecológico con cementos altamente adicionados.</p>
+  </header>
+
+  <main class="container">
+
+    <!-- Tarjeta Destacada: Documento de Visión FD02 -->
+    <section class="vision-card">
+      <div class="vision-header">
+        <div class="vision-title">
+          📑 Documento Maestro de Visión del Proyecto (FD02-EPIS)
+        </div>
+        <div class="vision-meta">
+          Versión 1.0 • 12/10/2026 • Programación Web II (UPT)
+        </div>
+      </div>
+      <p class="vision-body">
+        La arquitectura y los flujos documentados responden al informe oficial <strong>FD02-EPIS: Informe Visión de Proyecto — Sistema EcoMix IA</strong>, desarrollado por Joel Adrián Guillén Laveriano y Joan Cristian Medina Quispe (Docente: Mtro. Enrique Félix Lanchipa Valencia, UPT), formulado en el marco del <strong>Reto 2 de Yura S.A.</strong> para la <strong>Hackathon Innova Sur 2026</strong>.
+      </p>
+      <div class="vision-highlights">
+        <div class="vision-pill-box">
+          <strong>📐 Fórmulas Analíticas (FD02 §4.4)</strong>
+          Costo = &Sigma;(cant<sub>i</sub> &times; precio<sub>i</sub>) [S/./m³]<br>
+          CO₂e = &Sigma;(cant<sub>i</sub> &times; factor<sub>i</sub>) [kg CO₂e/m³]<br>
+          Distinción técnica estricta entre <code>a/c</code> y <code>a/mc</code>.
+        </div>
+        <div class="vision-pill-box">
+          <strong>🎯 Metas de Calidad (FD02 §7)</strong>
+          Predictor ML: R² &ge; 0.85, latencia &lt; 2 s.<br>
+          Optimizador multiobjetivo: latencia &lt; 10 s.<br>
+          Trazabilidad N09: entradas, resultados y versión en BD.
+        </div>
+        <div class="vision-pill-box">
+          <strong>🤖 Gobernanza de IA (R-09, RF07)</strong>
+          El asistente (Claude/OpenAI) interpreta resultados cuantitativos; <em>nunca altera ni inventa cifras</em>. Degradación suave ante fallos externos.
+        </div>
+        <div class="vision-pill-box">
+          <strong>🪜 Precedencia de MVP (FD02 §8)</strong>
+          P1: Catálogo &rarr; Formulario &rarr; ML 7d/28d &rarr; 3 Mezclas &rarr; Tabla.<br>
+          P2: Auth &rarr; ACI PRC-211.1-22 &rarr; Asistente IA &rarr; PDF.<br>
+          P3: Despliegue Azure App Service y UX.
+        </div>
+      </div>
+      <div style="margin-top: 0.5rem;">
+        <a href="../FD02-EPIS-Informe_Vision_EcoMixIA.md" class="btn-vision-doc" target="_blank">
+          Consultar Documento de Visión Completo (FD02 Markdown) ↗
+        </a>
+      </div>
+    </section>
+
+    <!-- Sección de Diagramas Actuales -->
+    <section>
+      <h2 class="section-title">📊 Diagramas Arquitectónicos Interactivos</h2>
+      <p class="section-desc">Artefactos oficiales generados y verificados con Archify 3.2, con compuertas automatizadas de entrega, inspección visual y comprobación en navegador real (Chrome headless).</p>
+
+      <div class="grid-diagrams">
+
+        <!-- Diagrama D02 -->
+        <div class="diagram-card">
+          <div class="card-banner">
+            <span class="tag-type">Architecture</span>
+            <span class="status-badge ready">● Validado y Generado (Showcase)</span>
+          </div>
+          <div class="card-body">
+            <h3>D02 — Arquitectura General</h3>
+            <p>Estructura modular del sistema completo: interacción entre la aplicación web, el motor de optimización, persistencia relacional, cálculo determinista de sostenibilidad y el subsistema predictivo en Azure ML.</p>
+            <div class="rf-pills">
+              <span class="rf-pill">RF01 Auth (P2)</span>
+              <span class="rf-pill">RF02 Catálogo (P1)</span>
+              <span class="rf-pill">RF04 ML 7d/28d (P1)</span>
+              <span class="rf-pill">RF05 Optimizador (P1)</span>
+              <span class="rf-pill">RF06 ACI 211 (P2)</span>
+              <span class="rf-pill">RF07 Asistente IA (P2)</span>
+              <span class="rf-pill">RF08 Reportes PDF (P2)</span>
+            </div>
+          </div>
+          <div class="card-footer">
+            <a href="diagrams/02-arquitectura-general.html" class="btn-action" target="_blank">
+              Abrir Diagrama Interactivo ↗
+            </a>
+            <a href="sources/02-arquitectura-general.json" class="btn-source" target="_blank">JSON Fuente</a>
+          </div>
+        </div>
+
+        <!-- Diagrama D03 -->
+        <div class="diagram-card">
+          <div class="card-banner">
+            <span class="tag-type">Workflow</span>
+            <span class="status-badge ready">● Validado y Generado (Showcase)</span>
+          </div>
+          <div class="card-body">
+            <h3>D03 — Flujo Funcional del Ingeniero</h3>
+            <p>Recorrido paso a paso del usuario profesional en 5 niveles operativos (swimlanes): selección de insumos, validación de parámetros, inferencia predictiva dual a 7 y 28 días, optimización multiobjetivo, contraste ACI 211, explicación IA y dossier PDF.</p>
+            <div class="rf-pills">
+              <span class="rf-pill">Happy Path (5 carriles)</span>
+              <span class="rf-pill">Límites Físicos</span>
+              <span class="rf-pill">Degradación Suave (R-09)</span>
+              <span class="rf-pill">Parada Segura</span>
+              <span class="rf-pill">Trazabilidad N09</span>
+            </div>
+          </div>
+          <div class="card-footer">
+            <a href="diagrams/03-flujo-ingeniero.html" class="btn-action" target="_blank">
+              Abrir Diagrama Interactivo ↗
+            </a>
+            <a href="sources/03-flujo-ingeniero.json" class="btn-source" target="_blank">JSON Fuente</a>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Sección de Diferenciación Arquitectónica de ML -->
+    <section class="ml-role-section">
+      <h2>🧠 El Papel de Machine Learning dentro del Ecosistema EcoMix IA</h2>
+      <p style="color: #475569; font-size: 1rem;">
+        Un principio arquitectónico fundamental establecido en el Informe de Visión (FD02 §4.1, R-04, R-09) es el <strong>desacoplamiento estricto</strong> entre el modelo predictivo, el motor de optimización y el asistente generativo. El modelo ML no resuelve monolíticamente el problema; cumple una función matemática y física acotada dentro del pipeline.
+      </p>
+
+      <div class="ml-grid">
+        <div class="ml-box">
+          <h4>🎯 1. Motor Predictivo (ML)</h4>
+          <ul>
+            <li><strong>Responsabilidad:</strong> Estimar la resistencia mecánica a compresión (<em>f'c</em> en MPa) mediante regresión validada estadísticamente.</li>
+            <li><strong>Entradas (8 variables físicas UCI 165):</strong> Cemento, escoria de alto horno, ceniza volante, agua, aditivo superplastificante, agregado grueso, agregado fino y edad de curado en días.</li>
+            <li><strong>Evaluación Dual:</strong> Se evalúa la dosificación fijando <code>age=7</code> y <code>age=28</code>. Meta de exactitud FD02 §7: R² &ge; 0.85, latencia &lt; 2 s.</li>
+            <li><strong>Límites Estrictos:</strong> <em>NO</em> calcula costos, factores de emisión de CO₂ ni asentamiento (slump). La resistencia objetivo <em>f'c</em> es un criterio del optimizador, no una variable de entrada del modelo.</li>
+          </ul>
+        </div>
+
+        <div class="ml-box">
+          <h4>⚙️ 2. Motor de Optimización</h4>
+          <ul>
+            <li><strong>Responsabilidad:</strong> Generar formulaciones admisibles y evaluar compromisos técnicos, económicos y ambientales.</li>
+            <li><strong>Criterio de Satisfacción:</strong> Evalúa si la resistencia estimada por ML cumple la meta requerida: <em>f'c(estimada) &ge; f'c(objetivo)</em>.</li>
+            <li><strong>Cálculo Determinista (FD02 §4.4):</strong> Evalúa costo unitario (S/./m³) y huella de carbono (kg CO₂e/m³) consultando precios y factores ambientales del catálogo.</li>
+            <li><strong>Contraste ACI PRC-211.1-22:</strong> Compara proporciones contra tablas empíricas estandarizadas para orientar ensayos de laboratorio, sin constituir certificación física automática.</li>
+          </ul>
+        </div>
+
+        <div class="ml-box">
+          <h4>🤖 3. Asistente IA Generativa</h4>
+          <ul>
+            <li><strong>Responsabilidad:</strong> Explicar y contextualizar en lenguaje técnico legible las opciones generadas, criterios y compensaciones.</li>
+            <li><strong>Gobernanza Estricta (R-09):</strong> Interpreta exclusivamente datos numéricos calculados; <em>tiene prohibido inventar o alterar</em> métricas ni predicciones.</li>
+            <li><strong>Tolerancia a Fallos:</strong> En caso de falla o límite de cuota del LLM (Claude / OpenAI), la plataforma mantiene la visualización y exportación de datos sin bloqueo.</li>
+            <li><strong>Transparencia:</strong> Cada reporte indica que las alternativas son estimaciones computacionales preliminares que requieren ensayos de laboratorio en probetas normalizadas.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Auditoría de Componentes -->
+    <section class="audit-section">
+      <h2 class="section-title">🔍 Matriz de Auditoría Técnica del Repositorio</h2>
+      <p class="section-desc">Contraste formal entre los componentes especificados en el Informe de Visión FD02 (v1.0, 12/10/2026) y la evidencia comprobada en los repositorios de trabajo.</p>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Componente / Módulo</th>
+              <th>Tecnología Observada / Propuesta</th>
+              <th>Estado de Auditoría</th>
+              <th>Evidencia / Ubicación</th>
+              <th>Referencia FD02 &amp; Rol</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Pipeline de Datos y Limpieza</strong></td>
+              <td>Python 3.13, Pandas, Scikit-learn</td>
+              <td><span class="tag-state verificado">Verificado</span></td>
+              <td><code>src/prepare_data.py</code>, <code>data/processed/</code></td>
+              <td>FD02 §4.1: Split reproducible 80/20, 0 nulos, 25 réplicas ASTM, dataset UCI 165.</td>
+            </tr>
+            <tr>
+              <td><strong>Registro de Activos en Nube</strong></td>
+              <td>Azure ML SDK v2, Azure Identity</td>
+              <td><span class="tag-state verificado">Verificado</span></td>
+              <td><code>src/register_data.py</code></td>
+              <td>FD02 §4.1: Data Assets CSV y MLTable para entrenamiento reproducible en la nube.</td>
+            </tr>
+            <tr>
+              <td><strong>Entrenamiento AutoML</strong></td>
+              <td>Azure Machine Learning AutoML</td>
+              <td><span class="tag-state verificado">Verificado</span></td>
+              <td><code>src/train_automl.py</code> (Job wheat_cheese_...)</td>
+              <td>FD02 §7: Regresión con 5-fold CV, límite 30 min, clúster <code>cpu-cluster-ecomix</code>.</td>
+            </tr>
+            <tr>
+              <td><strong>Evaluación de Desempeño</strong></td>
+              <td>Python, Scikit-learn, Joblib</td>
+              <td><span class="tag-state parcial">Parcial</span></td>
+              <td><code>src/evaluate_model.py</code></td>
+              <td>FD02 §7: Script codificado contra Test Set (206 filas); descarga de artefacto MLflow pendiente.</td>
+            </tr>
+            <tr>
+              <td><strong>Plataforma Web (Catálogo/Mezclas)</strong></td>
+              <td>ASP.NET MVC 5 (.NET 4.7.2, EF 6.5.1)</td>
+              <td><span class="tag-state verificado">Verificado</span></td>
+              <td>Repositorio hermano local <code>ML EcomixIA Sistema</code></td>
+              <td>FD02 §5 (RF02, RF03): CRUD Insumos, Registro de mezclas, cálculo Costo/CO₂ en C#.</td>
+            </tr>
+            <tr>
+              <td><strong>Arquitectura Web Propuesta (FD02)</strong></td>
+              <td>ASP.NET Core MVC, ML.NET, Azure App Service</td>
+              <td><span class="tag-state propuesto">Propuesto</span></td>
+              <td>Informe Visión FD02 §4.1, §6 (R-01, R-02)</td>
+              <td>Línea base proyectada en visión inicial; complementada con Azure AutoML en Python.</td>
+            </tr>
+            <tr>
+              <td><strong>Motor de Optimización Multiobjetivo</strong></td>
+              <td>Algoritmo heurístico / explorador de formulaciones</td>
+              <td><span class="tag-state propuesto">Propuesto</span></td>
+              <td>Especificación funcional FD02 §5 (RF05, P1)</td>
+              <td>Generación de &ge;3 mezclas sustituyendo clinker por adiciones minerales en &lt; 10 s.</td>
+            </tr>
+            <tr>
+              <td><strong>Comparador Normativo ACI 211</strong></td>
+              <td>Módulo analítico basado en ACI PRC-211.1-22</td>
+              <td><span class="tag-state propuesto">Propuesto</span></td>
+              <td>Especificación funcional FD02 §5 (RF06, P2)</td>
+              <td>Contraste referencial contra tablas de dosificación empírica estándar.</td>
+            </tr>
+            <tr>
+              <td><strong>Asistente IA Generativa</strong></td>
+              <td>API Externa LLM (Claude / OpenAI)</td>
+              <td><span class="tag-state propuesto">Propuesto</span></td>
+              <td>Especificación funcional FD02 §5 (RF07, P2, R-09)</td>
+              <td>Interpretación textual cualitativa y contextualización técnica sin modificar cifras.</td>
+            </tr>
+            <tr>
+              <td><strong>Reportes y Exportación PDF</strong></td>
+              <td>Motor de generación de documentos</td>
+              <td><span class="tag-state propuesto">Propuesto</span></td>
+              <td>Especificación funcional FD02 §5 (RF08, P2)</td>
+              <td>Dossier de dosificación técnica y trazabilidad de simulación e insumos.</td>
+            </tr>
+            <tr>
+              <td><strong>Integración Web &harr; Predictor Azure ML</strong></td>
+              <td>API REST (FastAPI / Azure Endpoint)</td>
+              <td><span class="tag-state noverificado">No Verificado</span></td>
+              <td>Fase 6 en Roadmap</td>
+              <td>No existe comunicación comprobada actual entre .NET y el modelo Python en Azure.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Hoja de Ruta para Próximos Diagramas -->
+    <section>
+      <h2 class="section-title">🗺️ Hoja de Ruta de Documentación Visual (D01, D04–D09)</h2>
+      <p class="section-desc">Estructura modular preparada para la incorporación incremental de las siguientes entregas de arquitectura sin modificar el portal base.</p>
+
+      <div class="grid-future">
+        <div class="future-card">
+          <h4>D01 — Contexto del Sistema</h4>
+          <p>Límites del sistema, actores externos, integraciones de planta cementera y proveedores de insumos (C4 L1).</p>
+        </div>
+        <div class="future-card">
+          <h4>D04 — Secuencia de Inferencia ML</h4>
+          <p>Trazado de llamadas HTTP, vectorización, timeout, respuesta y fallback del predictor (Sequence).</p>
+        </div>
+        <div class="future-card">
+          <h4>D05 — Flujo de Datos de Simulación</h4>
+          <p>Lineaje de datos desde insumos hasta cálculo de emisiones, costo y reporte final (Dataflow).</p>
+        </div>
+        <div class="future-card">
+          <h4>D06 — Ciclo de Vida de la Mezcla</h4>
+          <p>Estados: borrador, validada, optimizada, aprobada y archivada (Lifecycle).</p>
+        </div>
+        <div class="future-card">
+          <h4>D07 — Modelo Entidad-Relación</h4>
+          <p>Esquema relacional de insumos, dosificaciones, resultados y auditoría (ERD).</p>
+        </div>
+        <div class="future-card">
+          <h4>D08 — Despliegue en Infraestructura Nube</h4>
+          <p>Topología Azure App Service, Azure ML Cluster, SQL Database y Redes (Architecture).</p>
+        </div>
+        <div class="future-card">
+          <h4>D09 — Árbol de Capacidades del Sistema</h4>
+          <p>Desglose taxonómico de funcionalidades, roles y restricciones de ingeniería (Tree).</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <p><strong>EcoMix IA</strong> • Documentación Técnica Interactiva con Archify 3.2</p>
+    <p style="margin-top: 0.5rem; font-size: 0.8rem;">
+      Repositorio oficial: <a href="https://github.com/JMedina255/EcoMix-IA-AzureML" target="_blank">github.com/JMedina255/EcoMix-IA-AzureML</a> • Basado en FD02-EPIS (Reto 2 Yura S.A. Hackathon Innova Sur 2026, UPT).
+    </p>
+  </footer>
+
+</body>
+</html>

@@ -49,6 +49,13 @@ ML EcomixIA/
 │       ├── metadata.json           # Registro de semilla (42), particiones y estadísticas
 │       ├── train/                  # Definición MLTable para entrenamiento en Azure ML
 │       └── test/                   # Definición MLTable para prueba independiente
+├── docs/
+│   ├── FD02-EPIS-Informe_Vision_EcoMixIA.md # Documento maestro de visión del proyecto v1.0 (Reto 2 Yura S.A.)
+│   └── archify/                    # Portal interactivo de arquitectura con Archify 3.2
+│       ├── index.html              # Portal principal de documentación técnica
+│       ├── diagrams/               # Diagramas interactivos HTML (D02, D03)
+│       ├── sources/                # Especificaciones JSON maestras
+│       └── README.md               # Guía de reproducción y validación
 ├── src/
 │   ├── prepare_data.py             # Pipeline de limpieza, normalización y partición 80/20
 │   ├── register_data.py            # Registro de activos de datos (Data Assets) en Azure ML
@@ -102,3 +109,16 @@ ML EcomixIA/
    ```bash
    python src/evaluate_model.py
    ```
+
+---
+
+## 🏛️ 6. Documentación Visual e Interactiva (Archify)
+
+El proyecto cuenta con un portal interactivo de arquitectura técnica y flujos funcionales desarrollado con **Archify 3.2**, fundamentado en el informe [**FD02-EPIS: Informe Visión de Proyecto**](docs/FD02-EPIS-Informe_Vision_EcoMixIA.md) (Reto 2 Yura S.A. Hackathon Innova Sur 2026, UPT):
+
+- 🌐 **[Portal Principal de Documentación](docs/archify/index.html)**: Visión global del sistema, matriz de auditoría de componentes, fórmulas analíticas de sostenibilidad y roles arquitectónicos.
+- 🏗️ **[D02 — Arquitectura General del Sistema](docs/archify/diagrams/02-arquitectura-general.html)**: Mapa integral de la solución (plataforma web, persistencia, optimización, cálculo de sostenibilidad y Azure ML).
+- 🔄 **[D03 — Flujo Funcional del Ingeniero](docs/archify/diagrams/03-flujo-ingeniero.html)**: Diagrama de carriles interactivo desde el acceso y selección de insumos hasta la inferencia predictiva dual (7d/28d), contraste ACI 211, explicación IA y dossier PDF.
+
+Para instrucciones completas de validación y regeneración de diagramas, consulta [`docs/archify/README.md`](docs/archify/README.md).
+

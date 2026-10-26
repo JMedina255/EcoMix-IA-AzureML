@@ -1,0 +1,307 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "EcoMix IA — Arquitectura General del Sistema",
+    "locale": "es",
+    "output": "docs/archify/diagrams/02-arquitectura-general.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/JMedina255/EcoMix-IA-AzureML.git",
+      "revision": "38fde87d07451b1f7bba1eadbbf17782e40edcd7",
+      "provider": "github",
+      "link_mode": "web"
+    }
+  },
+  "components": [
+    {
+      "id": "users",
+      "type": "external",
+      "label": "Ingeniero / Admin",
+      "sublabel": "Navegador Web / Cliente",
+      "icon": "person",
+      "pos": [40, 210],
+      "size": [140, 64]
+    },
+    {
+      "id": "auth",
+      "type": "security",
+      "label": "Autenticación y Roles",
+      "sublabel": "RBAC Admin / Ingeniero (RF01)",
+      "tag": "Propuesto",
+      "pos": [40, 50],
+      "size": [140, 60]
+    },
+    {
+      "id": "report_service",
+      "type": "backend",
+      "label": "Módulo de Reportes",
+      "sublabel": "Exportación Dossier PDF (RF08)",
+      "tag": "Propuesto",
+      "pos": [40, 380],
+      "size": [140, 60]
+    },
+    {
+      "id": "material_catalog",
+      "type": "backend",
+      "label": "Catálogo de Materiales",
+      "sublabel": "Precios y Factores CO₂ (RF02)",
+      "tag": "Verificado MVC",
+      "pos": [290, 50],
+      "size": [160, 60]
+    },
+    {
+      "id": "web_app",
+      "type": "frontend",
+      "label": "Plataforma Web EcoMix",
+      "sublabel": "ASP.NET MVC 5 / Razor UI",
+      "tag": "Verificado Local",
+      "pos": [290, 210],
+      "size": [160, 64]
+    },
+    {
+      "id": "database",
+      "type": "database",
+      "label": "Base de Datos SQL Server",
+      "sublabel": "EF 6.5.1 / Historial y Modelos",
+      "tag": "Verificado Local",
+      "pos": [290, 380],
+      "size": [160, 60]
+    },
+    {
+      "id": "calc_sustainability",
+      "type": "backend",
+      "label": "Cálculo Costo y CO₂",
+      "sublabel": "S/./m³ y kg CO₂e/m³ (Model)",
+      "tag": "Verificado C#",
+      "pos": [575, 50],
+      "size": [165, 60]
+    },
+    {
+      "id": "optimizer_engine",
+      "type": "backend",
+      "label": "Motor de Optimización",
+      "sublabel": "P1: Genera ≥3 mezclas (RF05)",
+      "tag": "Propuesto",
+      "pos": [575, 210],
+      "size": [165, 64]
+    },
+    {
+      "id": "aci_comparator",
+      "type": "backend",
+      "label": "Comparador ACI 211",
+      "sublabel": "ACI PRC-211.1-22 (RF06)",
+      "tag": "Propuesto",
+      "pos": [575, 380],
+      "size": [165, 60]
+    },
+    {
+      "id": "ml_predictor",
+      "type": "backend",
+      "label": "Servicio Inferencia ML",
+      "sublabel": "Predicción f'c 7d y 28d (RF04)",
+      "tag": "Planificado (Python)",
+      "sources": [
+        {
+          "path": "src/evaluate_model.py",
+          "line": 43,
+          "end_line": 75,
+          "label": "Inferencia de Modelo Ganador"
+        }
+      ],
+      "pos": [855, 50],
+      "size": [165, 60]
+    },
+    {
+      "id": "ai_assistant",
+      "type": "external",
+      "label": "Asistente IA Generativa",
+      "sublabel": "Claude / OpenAI (RF07)",
+      "tag": "Propuesto",
+      "pos": [855, 210],
+      "size": [165, 64]
+    },
+    {
+      "id": "azure_automl",
+      "type": "cloud",
+      "label": "Azure Machine Learning",
+      "sublabel": "AutoML Regression (UCI 165)",
+      "tag": "Verificado en Azure",
+      "sources": [
+        {
+          "path": "src/train_automl.py",
+          "line": 46,
+          "end_line": 78,
+          "label": "AutoML Regression Job"
+        },
+        {
+          "path": "src/prepare_data.py",
+          "line": 80,
+          "end_line": 130,
+          "label": "Pipeline Datos y Split"
+        }
+      ],
+      "pos": [1130, 50],
+      "size": [155, 60]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Plataforma Web y Persistencia EcoMix IA",
+      "wraps": ["web_app", "material_catalog", "database"]
+    },
+    {
+      "kind": "region",
+      "label": "Núcleo de Optimización y Evaluación Técnica",
+      "wraps": ["optimizer_engine", "calc_sustainability", "aci_comparator"]
+    },
+    {
+      "kind": "region",
+      "label": "Subsistema Machine Learning (Azure ML / Python)",
+      "wraps": ["ml_predictor", "azure_automl"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "users-to-auth",
+      "from": "users",
+      "to": "auth",
+      "label": "Credenciales",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "users-to-web",
+      "from": "users",
+      "to": "web_app",
+      "label": "Interacción Web",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "web-to-catalog",
+      "from": "web_app",
+      "to": "material_catalog",
+      "label": "Gestión Insumos",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "web-to-db",
+      "from": "web_app",
+      "to": "database",
+      "label": "Persistencia EF",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "web-to-report",
+      "from": "web_app",
+      "to": "report_service",
+      "label": "Solicita Dossier",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "right"
+    },
+    {
+      "id": "catalog-to-calc",
+      "from": "material_catalog",
+      "to": "calc_sustainability",
+      "label": "Precios y CO₂",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "web-to-opt",
+      "from": "web_app",
+      "to": "optimizer_engine",
+      "label": "Criterios y f'c",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "opt-to-calc",
+      "from": "optimizer_engine",
+      "to": "calc_sustainability",
+      "label": "Cantidades / m³",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "opt-to-aci",
+      "from": "optimizer_engine",
+      "to": "aci_comparator",
+      "label": "Contraste técnico",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "opt-to-ml",
+      "from": "optimizer_engine",
+      "to": "ml_predictor",
+      "label": "Dosificación + age",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "opt-to-ai",
+      "from": "optimizer_engine",
+      "to": "ai_assistant",
+      "label": "Datos calculados",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "ml-to-azure",
+      "from": "ml_predictor",
+      "to": "azure_automl",
+      "label": "Descarga modelo",
+      "fromSide": "right",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Alineación Visión FD02 (Reto Yura / Innova Sur)",
+      "items": [
+        "Inspirado en el Reto 2 de Yura S.A. para la Hackathon Innova Sur 2026 (concreto con cementos altamente adicionados).",
+        "Pipeline de datos UCI 165 (1.030 filas, 9 columnas) y split reproducible 80/20 implementado en prepare_data.py.",
+        "Entrenamiento AutoML completado en Azure ML clúster cpu-cluster-ecomix (job wheat_cheese_4swj34tkjn)."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Fórmulas de Sostenibilidad y ACI (FD02 §4.4)",
+      "items": [
+        "Costo estimado: Σ(cantidad_i × precio_unitario_i) expresado en S/./m³.",
+        "Huella CO₂e: Σ(cantidad_i × factor_emision_i) expresado en kg CO₂e/m³.",
+        "Diferenciación normativa entre relación agua/cemento (a/c) y agua/material cementante (a/mc).",
+        "Contraste referencial contra tablas de dosificación empírica estándar ACI PRC-211.1-22."
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Aislamiento del Predictor ML (UCI 165)",
+      "items": [
+        "El modelo predictivo ML recibe 8 variables físicas (kg/m³) y la edad de curado (age = 7 y 28 días).",
+        "La resistencia objetivo f'c es un criterio de diseño del optimizador, no una entrada del modelo UCI.",
+        "El predictor no estima costos, factores de emisión ni trabajabilidad (slump)."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Gobernanza y Restricciones (R-04, R-06, R-09)",
+      "items": [
+        "R-04: Predicciones válidas únicamente dentro de límites razonables de datos del dataset UCI.",
+        "R-06: Los resultados constituyen estimaciones preliminares; no equivalen a certificación técnica ni normativa.",
+        "R-09: El asistente generativo (Claude/OpenAI) no alterará los resultados numéricos obtenidos por el motor de cálculo.",
+        "Precedencia FD02: P1 (MVP: Catálogo, Formulario, ML 7d/28d, 3 Alternativas) → P2 (Auth, ACI, IA, PDF) → P3 (Azure)."
+      ]
+    }
+  ]
+}

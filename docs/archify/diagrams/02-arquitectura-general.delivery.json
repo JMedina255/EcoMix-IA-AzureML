@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "c69aceee-a95f-4928-98ec-d71d6399527c",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "C:\\Users\\Admin\\Desktop\\Proyectos\\ML EcomixIA\\docs\\archify\\sources\\02-arquitectura-general.json",
+  "output": "C:\\Users\\Admin\\Desktop\\Proyectos\\ML EcomixIA\\docs\\archify\\diagrams\\02-arquitectura-general.html",
+  "specification": {
+    "sha256": "5d898389e969bd011c866ecbe7bb423eb3fea267fd6bc025d9a7359e5359fe0a",
+    "bytes": 8727
+  },
+  "artifact": {
+    "sha256": "b6626077e4b7f64a38cd4e246d17398212b2b48889f60c991048b7e74992caad",
+    "bytes": 864076
+  }
+}
