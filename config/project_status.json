@@ -25,15 +25,18 @@
     },
     "training_environment": {
       "curated_image": "mcr.microsoft.com/azureml/curated/ai-ml-automl:41",
-      "python_version": "3.9 / 3.10"
+      "python_version": "3.10.19",
+      "sklearn_version": "1.5.1",
+      "mlflow_version": "2.15.1",
+      "evidence_source": "models/.../python_env.yaml y MLmodel"
     }
   },
   "phases": {
     "fase_1": {
       "name": "Descarga de Datos",
       "status": "completed",
-      "script": "dataset.py",
-      "evidence": "Dataset UCI ID 165 descargado en data/raw/concrete_raw.csv"
+      "script": "data/raw/concrete_raw.csv",
+      "evidence": "Dataset UCI ID 165 preservado en data/raw/concrete_raw.csv"
     },
     "fase_2": {
       "name": "Preparacion y Validacion",
@@ -106,10 +109,10 @@
     },
     {
       "id": "ISSUE-ENV-01",
-      "component": "Python 3.13.5 local vs 3.10 training",
-      "description": "Posible incompatibilidad en deserializacion joblib por diferencia de version de Python entre AzureML AutoML y host local.",
+      "component": "Python local vs Python 3.10.19 (AutoML runtime)",
+      "description": "El modelo AutoML VotingEnsemble fue generado en Python 3.10.19 con scikit-learn 1.5.1 y mlflow 2.15.1. El entorno de desarrollo general soporta Python 3.10-3.13, pero la deserializacion fiel del modelo binario requiere concordancia de runtime.",
       "status": "monitored",
-      "recommendation": "Utilizar entorno virtual dedicado con Python 3.10 o contenedor de reproducibilidad documentado."
+      "recommendation": "Separar el entorno de desarrollo general del runtime de inferencia; utilizar Python 3.10.19 en venv dedicado o ejecucion remota documentada."
     }
   ],
   "verified_tests": {

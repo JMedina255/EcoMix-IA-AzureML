@@ -66,7 +66,9 @@ Adicionalmente, el agente debe:
   - La procedencia del modelo ganador se audita por sus metadatos en Azure ML (`azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1`), no por su binario en el árbol de Git.
 
 ### 3.4 Compatibilidad de Entorno
-- El entorno local puede ejecutar Python 3.13.x, pero el modelo de Azure ML AutoML fue serializado en entornos basados en Python 3.9/3.10.
+- El entorno local y de integración continua (CI) soporta Python 3.10 a 3.13.x para tareas de desarrollo, análisis y testing de la plataforma.
+- El modelo AutoML de Azure ML (`VotingEnsemble`) fue serializado específicamente en Python 3.10.19 con Scikit-learn 1.5.1 y MLflow 2.15.1 (confirmado por `python_env.yaml` y `MLmodel`).
+- Mantener desacopladas las herramientas de desarrollo general del runtime de inferencia especializado; no intentar conversiones no auditadas del binario.
 - No alterar instalaciones globales del sistema operativo ni intentar desinstalar/reinstalar versiones de Python a nivel de máquina.
 - Recomendar siempre entornos virtuales aislados.
 

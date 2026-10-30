@@ -126,6 +126,12 @@ if ($Install) {
         }
         Write-Host "  [*] Instalando dependencias desde requirements.txt..." -ForegroundColor Cyan
         & $PipExecutable install -r $ReqPath
+
+        $ReqDevPath = Join-Path $RootDir "requirements-dev.txt"
+        if (Test-Path $ReqDevPath) {
+            Write-Host "  [*] Instalando dependencias de desarrollo desde requirements-dev.txt..." -ForegroundColor Cyan
+            & $PipExecutable install -r $ReqDevPath
+        }
     } else {
         Write-Host "  [AVISO] 'requirements.txt' no encontrado en la raíz del proyecto." -ForegroundColor Yellow
     }

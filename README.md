@@ -73,7 +73,7 @@ ML EcomixIA/
 
 | Fase | Nombre | Estado | Script / Archivo Principal | Descripción y Entregables |
 | :---: | :--- | :---: | :--- | :--- |
-| **1** | **Descarga de Datos** | ✅ Completado | `dataset.py` / `data/raw/` | Adquisición automática del repositorio UCI (ID 165) y preservación inalterada. |
+| **1** | **Descarga de Datos** | ✅ Completado | `data/raw/concrete_raw.csv` | Adquisición del dataset estándar UCI (ID 165) y preservación inalterada. |
 | **2** | **Preparación y Validación** | ✅ Completado | [`src/prepare_data.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/src/prepare_data.py) | Verificación de 0 nulos, 25 réplicas ASTM, tipado, normalización y split 80/20 (`seed=42`). |
 | **3** | **Entrenamiento AutoML en Azure** | ✅ Completado | [`src/train_automl.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/src/train_automl.py) | Clúster `cpu-cluster-ecomix`. Límites estrictos (30 min, 5 min/trial, 12 modelos). Job `wheat_cheese_4swj34tkjn`. |
 | **4** | **Evaluación Independiente** | 🟡 Listo para ejecutar | [`src/evaluate_model.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/src/evaluate_model.py) | Descarga del mejor modelo, cálculo de $R^2$, RMSE y MAE con las 206 muestras aisladas de prueba. |

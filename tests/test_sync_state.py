@@ -60,7 +60,7 @@ def mock_project_tree(tmp_path):
             }
         },
         "phases": {
-            "fase_1": {"name": "Descarga", "status": "completed", "script": "dataset.py", "evidence": "OK"},
+            "fase_1": {"name": "Descarga", "status": "completed", "script": "data/raw/concrete_raw.csv", "evidence": "OK"},
             "fase_2": {"name": "Preparacion", "status": "completed", "script": "src/prepare.py", "evidence": "OK"},
             "fase_4_1": {"name": "Inspeccion", "status": "completed", "script": "src/eval.py", "evidence": "OK"},
             "fase_4_3": {"name": "Descarga", "status": "completed", "script": "src/eval.py", "evidence": "OK"},

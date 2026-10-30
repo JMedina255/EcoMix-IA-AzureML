@@ -21,7 +21,7 @@
 
 | Fase | Nombre | Estado | Script / Componente | Evidencia Técnica Comprobada |
 | :---: | :--- | :---: | :--- | :--- |
-| **1** | Descarga de Datos | ✅ Completado | `dataset.py` | Dataset UCI ID 165 descargado en data/raw/concrete_raw.csv |
+| **1** | Descarga de Datos | ✅ Completado | `data/raw/concrete_raw.csv` | Dataset UCI ID 165 preservado en data/raw/concrete_raw.csv |
 | **2** | Preparacion y Validacion | ✅ Completado | `src/prepare_data.py` | Split deterministico 80/20 (824 train, 206 test), 0 nulos, 25 replicas ASTM |
 | **3** | Entrenamiento AutoML en Azure | ✅ Completado | `src/train_automl.py` | Job wheat_cheese_4swj34tkjn completado, 12 iteraciones, mejor score NRMSE 0.05859 |
 | **4.1** | Inspeccion Segura del Experimento | ✅ Completado | `src/evaluate_model.py --inspect` | Normalizacion de estado canonico y trazabilidad desglosada del experimento |
@@ -50,7 +50,7 @@ Los siguientes datos corresponden a la telemetría oficial de Azure ML Workspace
 - **Tamaño del Modelo en Disco:** `670,849 bytes` (~655.1 KB)
 - **Modelo en Catálogo Manual:** Ninguno registrado manualmente en catálogo (activo local de workspace).
 - **Entorno de Entrenamiento Original:**  
-  Imagen Curada: `mcr.microsoft.com/azureml/curated/ai-ml-automl:41` (Python 3.9 / 3.10).
+  Imagen Curada: `mcr.microsoft.com/azureml/curated/ai-ml-automl:41` (Python 3.10.19).
 
 ---
 
@@ -61,8 +61,8 @@ Los siguientes datos corresponden a la telemetría oficial de Azure ML Workspace
 - **Mitigación comprobada:** Descarga directa selectiva via Model Asset (ml_client.models.download) implementada en evaluate_model.py.
 
 ### Incidencia ISSUE-ENV-01 (Monitored)
-- **Descripción:** Posible incompatibilidad en deserializacion joblib por diferencia de version de Python entre AzureML AutoML y host local.
-- **Recomendación:** Utilizar entorno virtual dedicado con Python 3.10 o contenedor de reproducibilidad documentado.
+- **Descripción:** El modelo AutoML VotingEnsemble fue generado en Python 3.10.19 con scikit-learn 1.5.1 y mlflow 2.15.1. El entorno de desarrollo general soporta Python 3.10-3.13, pero la deserializacion fiel del modelo binario requiere concordancia de runtime.
+- **Recomendación:** Separar el entorno de desarrollo general del runtime de inferencia; utilizar Python 3.10.19 en venv dedicado o ejecucion remota documentada.
 
 ---
 

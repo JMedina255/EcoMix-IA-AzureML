@@ -232,8 +232,9 @@ def diagnose_evaluation(base_dir: Path) -> Dict[str, Any]:
     py_warning = None
     if sys.version_info >= (3, 11):
         py_warning = (
-            f"El modelo AutoML fue entrenado bajo Python 3.9/3.10. El intérprete actual es {py_ver}. "
-            "Podría requerirse un entorno con Python 3.10 o contenedor Azure ML para deserialización sin advertencias."
+            f"El modelo AutoML fue entrenado bajo Python 3.10.19 (scikit-learn 1.5.1, mlflow 2.15.1). "
+            f"El intérprete actual es {py_ver}. Podría requerirse un entorno con Python 3.10.19 "
+            "o contenedor Azure ML para deserialización sin advertencias ni discrepancias numéricas."
         )
 
     is_ready = (test_ok and len(model_files) > 0)
