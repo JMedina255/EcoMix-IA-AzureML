@@ -116,13 +116,14 @@
     }
   ],
   "verified_tests": {
-    "total_tests": 37,
+    "total_tests": 43,
     "suite": "pytest",
     "test_files": [
       "tests/test_evaluation_control.py",
       "tests/test_inspect_and_download.py",
       "tests/test_sync_state.py",
-      "tests/test_doctor.py"
+      "tests/test_doctor.py",
+      "tests/test_model_runtime.py"
     ],
     "status": "passing"
   }

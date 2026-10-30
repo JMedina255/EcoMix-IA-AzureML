@@ -69,7 +69,7 @@ Los siguientes datos corresponden a la telemetría oficial de Azure ML Workspace
 ## 5. Pruebas y Cobertura Verificada
 
 - **Suite de Pruebas:** `pytest tests/ -v`
-- **Total de Pruebas:** 37 pruebas automatizadas pasando al 100%.
+- **Total de Pruebas:** 43 pruebas automatizadas pasando al 100%.
 - **Archivos de Prueba:**
   - `tests/test_evaluation_control.py` (6 pruebas: validación de dataset, nulos, tipado, solapamiento, métricas robustas, ejecución end-to-end con dummy model).
   - `tests/test_inspect_and_download.py` (16 pruebas: normalizadores de estado y outputs, Casos A-D de AutoML, seguridad `all=False`, manejo de errores del SDK, verificación de archivos en disco, preferencia de Model Asset y validación de procedencia).
@@ -82,7 +82,7 @@ Los siguientes datos corresponden a la telemetría oficial de Azure ML Workspace
 1. El split de datos está congelado en 824 registros para entrenamiento y 206 para prueba (`concrete_test.csv`).
 2. El job `wheat_cheese_4swj34tkjn` produjo un modelo `VotingEnsemble` con NRMSE de `0.05859`.
 3. El activo de modelo `azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1` se descarga selectiva e íntegramente mediante `ml_client.models.download`.
-4. El pipeline local cuenta con 37 pruebas automatizadas unitarias y de integración simulada sin dependencia de credenciales en CI.
+4. El pipeline local cuenta con 43 pruebas automatizadas unitarias y de integración simulada sin dependencia de credenciales en CI.
 
 ### Decisiones Técnicas Pendientes
 1. **Entorno de Ejecución de la Evaluación (Fase 4.4):** Determinar si se ejecuta localmente sobre Python 3.13 con validación estricta de compatibilidad o si se monta un contenedor Docker basado en `ai-ml-automl:41`.
