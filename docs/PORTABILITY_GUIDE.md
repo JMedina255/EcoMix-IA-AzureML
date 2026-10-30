@@ -189,7 +189,7 @@ Recomendado cuando el equipo local (por ejemplo, en Windows con Python 3.13) no 
    * **Cómputo:** `cpu-cluster-ecomix` (instancia única).
    * **Tiempo límite:** 30 minutos (ejecución real estimada: ~2 a 4 minutos).
    * **Costo estimado:** Menor a $0.02 USD (~0.08 S/.) consumido de los créditos de Azure.
-   * **Entradas:** Activo de modelo `azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1` y dataset `concrete_test.csv` (206 muestras, SHA-256: `79bdf9613e8515d09baca797e1de4c6de2d6836437584702cbc9c1e78f68c6be`).
+   * **Entradas:** Activo de modelo `azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1` y dataset `concrete_test.csv` (206 muestras, SHA-256 canónico: `6484d9f1493ca19ada7c7ec32ebf0a7015bcb1773605b2de428ff1b5a889026b`).
    * **Salidas:** Directorio `reports/` con `evaluation_wheat_cheese_4swj34tkjn.json` y el gráfico de correlación.
 3. **Validación Previa sin Consumo de Cómputo:**
    ```bash

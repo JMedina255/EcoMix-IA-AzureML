@@ -1,0 +1,8 @@
+# Configuración Git Attributes para preservación determinística de bytes entre plataformas
+* text=auto
+*.csv text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf

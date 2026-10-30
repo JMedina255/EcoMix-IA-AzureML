@@ -30,10 +30,23 @@ EXPECTED_TIMEOUT_MINUTES = 30
 EXPECTED_INSTANCE_COUNT = 1
 
 
-def compute_file_sha256(file_path: Path) -> str:
-    """Calcula el hash SHA-256 de un archivo para verificación de integridad."""
+def compute_file_sha256(file_path: Path, normalize_newlines: bool = True) -> str:
+    """
+    Calcula el hash SHA-256 de un archivo para verificación de integridad.
+    Para archivos de datos/texto (.csv, .txt, .json, .yml, .yaml, .md, .py), normaliza saltos de línea
+    (CRLF -> LF) garantizando un hash determinístico idéntico en Windows, Linux y macOS.
+    Para binarios (.pkl, .joblib, etc.), procesa los bytes brutos sin alteración.
+    """
+    p = Path(file_path)
+    text_extensions = {".csv", ".txt", ".json", ".yml", ".yaml", ".md", ".py"}
+    is_text = p.suffix.lower() in text_extensions
+
+    if normalize_newlines and is_text:
+        content = p.read_bytes().replace(b"\r\n", b"\n")
+        return hashlib.sha256(content).hexdigest()
+
     sha = hashlib.sha256()
-    with open(file_path, "rb") as f:
+    with open(p, "rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
             sha.update(chunk)
     return sha.hexdigest()

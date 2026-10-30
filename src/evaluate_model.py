@@ -741,10 +741,23 @@ def download_winner_model(
     return verify_downloaded_model_files(dest_dir, context_desc=f"output '{chosen_output}'")
 
 
-def compute_file_sha256(file_path: Path) -> str:
-    """Calcula el hash SHA-256 de un archivo para trazabilidad e integridad."""
+def compute_file_sha256(file_path: Path, normalize_newlines: bool = True) -> str:
+    """
+    Calcula el hash SHA-256 de un archivo para trazabilidad e integridad.
+    Para archivos de datos/texto (.csv, .txt, .json, .yml, .yaml, .md, .py), normaliza saltos de línea
+    (CRLF -> LF) garantizando un hash determinístico idéntico en Windows, Linux y macOS.
+    Para binarios (.pkl, .joblib, etc.), procesa los bytes brutos sin alteración.
+    """
+    p = Path(file_path)
+    text_extensions = {".csv", ".txt", ".json", ".yml", ".yaml", ".md", ".py"}
+    is_text = p.suffix.lower() in text_extensions
+
+    if normalize_newlines and is_text:
+        content = p.read_bytes().replace(b"\r\n", b"\n")
+        return hashlib.sha256(content).hexdigest()
+
     sha = hashlib.sha256()
-    with open(file_path, "rb") as f:
+    with open(p, "rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
             sha.update(chunk)
     return sha.hexdigest()

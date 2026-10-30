@@ -21,11 +21,11 @@ inputs:
   test_data:
     type: uri_file
     path: ../data/processed/concrete_test.csv
-    description: "Dataset de prueba independiente (206 filas, SHA-256: 79bdf9613e8515d09baca797e1de4c6de2d6836437584702cbc9c1e78f68c6be)"
+    description: "Dataset de prueba independiente (206 filas, SHA-256 canónico: 6484d9f1493ca19ada7c7ec32ebf0a7015bcb1773605b2de428ff1b5a889026b)"
   train_data:
     type: uri_file
     path: ../data/processed/concrete_train.csv
-    description: "Dataset de entrenamiento para verificación objetiva de solapamiento (SHA-256: 1e5f7f68bf17cbfed2af73659452f02af141250e99c2d19732092508e256aa61)"
+    description: "Dataset de entrenamiento para verificación objetiva de solapamiento (SHA-256 canónico: f6a854e3a237a55675f06bd07bb8d299be86a13de8968edd55b5d12a82a498fe)"
 
 outputs:
   reports_dir:
@@ -52,5 +52,5 @@ tags:
   project: EcoMix-IA
   phase: Fase-4.4-B-Independent-Evaluation
   winner_child_run: wheat_cheese_4swj34tkjn_11
-  test_sha256: 79bdf9613e8515d09baca797e1de4c6de2d6836437584702cbc9c1e78f68c6be
+  test_sha256: 6484d9f1493ca19ada7c7ec32ebf0a7015bcb1773605b2de428ff1b5a889026b
   test_samples: "206"

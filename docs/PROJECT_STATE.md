@@ -84,7 +84,7 @@ Los siguientes datos corresponden a la telemetría oficial de Azure ML Workspace
 ## 6. Distinción Entre Hechos Comprobados y Plan de Ejecución
 
 ### Hechos Comprobados y Pasos Completados
-1. **Partición de Datos:** Congelada deterministicamente en 824 registros para entrenamiento y 206 para prueba (`concrete_test.csv`, SHA-256: `79bdf9613e8515d09baca797e1de4c6de2d6836437584702cbc9c1e78f68c6be`).
+1. **Partición de Datos:** Congelada deterministicamente en 824 registros para entrenamiento y 206 para prueba (`concrete_test.csv`, SHA-256 canónico: `6484d9f1493ca19ada7c7ec32ebf0a7015bcb1773605b2de428ff1b5a889026b`).
 2. **Entrenamiento AutoML:** El job `wheat_cheese_4swj34tkjn` produjo un modelo ganador `VotingEnsemble` con NRMSE de `0.05859`.
 3. **Inspección y Descarga del Artefacto (Completadas):** El activo `azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1` se descarga selectivamente mediante `ml_client.models.download` (670,849 bytes).
 4. **Verificación de Firma y Metadatos (Completada):** Se validó que el artefacto declare estrictamente las 8 variables predictoras sin requerir deserialización (`scripts/verify_model_load.py --signature-only`).
