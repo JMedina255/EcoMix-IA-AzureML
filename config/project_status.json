@@ -33,7 +33,7 @@
       "name": "Descarga de Datos",
       "status": "completed",
       "script": "dataset.py",
-      "evidence": "Dataset UCI ID 165 descargado en data/raw/concrete_data.csv"
+      "evidence": "Dataset UCI ID 165 descargado en data/raw/concrete_raw.csv"
     },
     "fase_2": {
       "name": "Preparacion y Validacion",

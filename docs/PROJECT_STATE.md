@@ -12,7 +12,7 @@
 - **Repositorio:** `JMedina255/EcoMix-IA-AzureML`
 - **Rama Principal:** `main`
 - **Fase Actual:** `4.3 — Descarga selectiva de modelo ganador`
-- **Próximo Hito Autorizado:** `4.4 — Evaluación controlada e independiente del modelo ganador`
+- **Próximo Hito Autorizado:** `4.4 - Evaluacion controlada e independiente del modelo ganador`
 - **Última Validación Registrada:** `2026-10-30` (Origen: *Azure ML Studio & Workspace Telemetry*)
 
 ---
@@ -21,17 +21,17 @@
 
 | Fase | Nombre | Estado | Script / Componente | Evidencia Técnica Comprobada |
 | :---: | :--- | :---: | :--- | :--- |
-| **1** | Descarga de Datos | ✅ Completado | `dataset.py` | Dataset UCI ID 165 preservado en `data/raw/concrete_data.csv`. |
-| **2** | Preparación y Validación | ✅ Completado | `src/prepare_data.py` | Split determinístico 80/20 (824 train, 206 test), 0 nulos, 25 réplicas ASTM auditadas. |
-| **3** | Entrenamiento AutoML en Azure | ✅ Completado | `src/train_automl.py` | Job `wheat_cheese_4swj34tkjn` finalizado con 12 iteraciones en clúster `cpu-cluster-ecomix`. |
-| **4.1** | Inspección Segura del Experimento | ✅ Completado | `src/evaluate_model.py --inspect` | Normalización canónica de estados (`completed`) y trazabilidad desglosada en modo sólo lectura. |
-| **4.2** | Control de Recursos y Validación de Test Set | ✅ Completado | `src/evaluate_model.py` | Aislamiento de 206 muestras, 8 características, detección de solapamiento y métricas robustas. |
-| **4.3** | Descarga Selectiva de Artefactos | ✅ Completado | `src/evaluate_model.py --download` | Descarga selectiva (`all=False`) mediante Model Asset verificado eludiendo bugs del SDK. |
-| **4.4** | Evaluación Independiente del Modelo | 🟡 Pendiente | `src/evaluate_model.py --evaluate` | Pendiente de ejecución controlada en entorno compatible. |
-| **4.5** | Generación de Reportes y Trazabilidad | 🟡 Pendiente | `src/evaluate_model.py` | Pendiente de consolidación en `reports/`. |
-| **5** | Módulo de Inferencia EcoMix (7d y 28d + $\text{CO}_2$) | ⏳ Pendiente | `src/inference.py` | No iniciado (siguiente módulo tras la Fase 4). |
-| **6** | API de Inferencia (FastAPI) | ⏳ Pendiente | `src/api.py` | No iniciado. |
-| **7** | Simulador Interactivo (Streamlit UI) | ⏳ Pendiente | `app.py` | No iniciado. |
+| **1** | Descarga de Datos | ✅ Completado | `dataset.py` | Dataset UCI ID 165 descargado en data/raw/concrete_raw.csv |
+| **2** | Preparacion y Validacion | ✅ Completado | `src/prepare_data.py` | Split deterministico 80/20 (824 train, 206 test), 0 nulos, 25 replicas ASTM |
+| **3** | Entrenamiento AutoML en Azure | ✅ Completado | `src/train_automl.py` | Job wheat_cheese_4swj34tkjn completado, 12 iteraciones, mejor score NRMSE 0.05859 |
+| **4.1** | Inspeccion Segura del Experimento | ✅ Completado | `src/evaluate_model.py --inspect` | Normalizacion de estado canonico y trazabilidad desglosada del experimento |
+| **4.2** | Control de Recursos y Validacion de Dataset de Prueba | ✅ Completado | `src/evaluate_model.py (validaciones)` | Validacion de 206 muestras de prueba, deteccion de solapamiento y metricas robustas |
+| **4.3** | Descarga Selectiva de Artefactos | ✅ Completado | `src/evaluate_model.py --download` | Descarga directa asegurada mediante Model Asset verificado sin all=True |
+| **4.4** | Evaluacion Independiente del Modelo | 🟡 Pendiente | `src/evaluate_model.py --evaluate` | Pendiente de ejecucion bajo entorno compatible |
+| **4.5** | Generacion de Reportes y Trazabilidad | 🟡 Pendiente | `src/evaluate_model.py (reporting)` | Pendiente de consolidacion de metricas en reports/ |
+| **5** | Modulo de Inferencia EcoMix (7d y 28d + Ahorro CO2) | 🟡 Pendiente | `src/inference.py` | No iniciado |
+| **6** | API de Inferencia (FastAPI) | 🟡 Pendiente | `src/api.py` | No iniciado |
+| **7** | Simulador Interactivo (Streamlit UI) | 🟡 Pendiente | `app.py` | No iniciado |
 
 ---
 
@@ -50,21 +50,19 @@ Los siguientes datos corresponden a la telemetría oficial de Azure ML Workspace
 - **Tamaño del Modelo en Disco:** `670,849 bytes` (~655.1 KB)
 - **Modelo en Catálogo Manual:** Ninguno registrado manualmente en catálogo (activo local de workspace).
 - **Entorno de Entrenamiento Original:**  
-  Imagen Curada: `mcr.microsoft.com/azureml/curated/ai-ml-automl:41` (Python 3.9/3.10).
+  Imagen Curada: `mcr.microsoft.com/azureml/curated/ai-ml-automl:41` (Python 3.9 / 3.10).
 
 ---
 
 ## 4. Incidencias Técnicas y Mitigaciones
 
-### Incidencia ISSUE-SDK-01 (Mitigada)
-- **Descripción:** `TypeError: BatchGetResolvedUrisDto.__init__() got an unexpected keyword argument 'values'` al invocar descarga por output `best_model` en `azure-ai-ml 1.35.x` y `az ml job download` (extensión 2.45.2).
-- **Causa:** Generador Autorest renombró el parámetro a `values_property`, pero `_model_dataplane_operations.py` sigue pasando `values=model_ids`.
-- **Mitigación comprobada:** Implementada descarga directa de Model Asset mediante `ml_client.models.download(name, version, download_path)` en `src/evaluate_model.py`.
+### Incidencia ISSUE-SDK-01 (Mitigated)
+- **Descripción:** TypeError en BatchGetResolvedUrisDto.__init__() al descargar por output_name='best_model'.
+- **Mitigación comprobada:** Descarga directa selectiva via Model Asset (ml_client.models.download) implementada en evaluate_model.py.
 
-### Incidencia ISSUE-ENV-01 (Monitoreada)
-- **Descripción:** El host local ejecuta Python 3.13.5, mientras que el modelo fue entrenado en Python 3.9/3.10.
-- **Riesgo:** Posible incompatibilidad de deserialización joblib/pickle o diferencias numéricas de Scikit-learn/NumPy.
-- **Acción:** Preservar la integridad del binario sin forzar conversiones locales; recomendar entorno virtual aislado o contenedor reproducible para la Fase 4.4.
+### Incidencia ISSUE-ENV-01 (Monitored)
+- **Descripción:** Posible incompatibilidad en deserializacion joblib por diferencia de version de Python entre AzureML AutoML y host local.
+- **Recomendación:** Utilizar entorno virtual dedicado con Python 3.10 o contenedor de reproducibilidad documentado.
 
 ---
 
