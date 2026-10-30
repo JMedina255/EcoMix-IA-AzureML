@@ -189,3 +189,93 @@ def test_evaluate_model_end_to_end_with_dummy_model(tmp_path, capsys):
     )
     captured = capsys.readouterr()
     assert "sobrescribirá el reporte previo existente" in captured.out.lower()
+
+
+def test_evaluate_model_with_simulated_mlflow_model(tmp_path):
+    """Comprueba la evaluación independiente sobre un modelo en formato MLflow."""
+    import mlflow.sklearn
+
+    train_path = tmp_path / "train.csv"
+    test_path = tmp_path / "test.csv"
+    reports_dir = tmp_path / "reports"
+    mlflow_model_dir = tmp_path / "simulated_mlflow"
+
+    df_train = create_sample_csv(train_path, n_rows=25)
+    # Crear test con 20 filas, donde la primera tiene características idénticas a train
+    df_test = create_sample_csv(test_path, n_rows=20, include_overlap_with=df_train)
+
+    reg = DummyRegressor(strategy="mean")
+    reg.fit(df_train[EXPECTED_FEATURES], df_train[TARGET_FEATURE])
+
+    mlflow.sklearn.save_model(
+        sk_model=reg,
+        path=str(mlflow_model_dir),
+        serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE
+    )
+
+    report = evaluate_model(
+        model_path=mlflow_model_dir,
+        job_name="mlflow_eval_test",
+        test_path=test_path,
+        train_path=train_path,
+        reports_dir=reports_dir
+    )
+
+    assert report["metadata"]["model_flavor"] == "mlflow"
+    assert report["metadata"]["test_sha256"] is not None
+    assert report["metadata"]["model_sha256"] is not None
+    assert "deduplicated_metrics" in report
+    assert report["deduplicated_metrics"]["sample_count"] == 19
+    assert report["global_metrics"]["r2_score"] is not None
+    assert report["deduplicated_metrics"]["metrics"]["rmse_mpa"] is not None
+    assert "mlflow" in report["environment"]["dependencies"]
+
+
+def test_evaluate_model_deduplication_and_no_astm_attribution(tmp_path):
+    """Comprueba que no se asuma causalidad ASTM sin confirmación documental."""
+    train_path = tmp_path / "train.csv"
+    test_path = tmp_path / "test.csv"
+    reports_dir = tmp_path / "reports"
+    model_path = tmp_path / "model.pkl"
+
+    df_train = create_sample_csv(train_path, n_rows=10)
+    df_test = create_sample_csv(test_path, n_rows=10, include_overlap_with=df_train)
+
+    reg = DummyRegressor(strategy="mean")
+    reg.fit(df_train[EXPECTED_FEATURES], df_train[TARGET_FEATURE])
+    joblib.dump(reg, model_path)
+
+    report = evaluate_model(
+        model_path=model_path,
+        job_name="astm_audit_job",
+        test_path=test_path,
+        train_path=train_path,
+        reports_dir=reports_dir
+    )
+
+    notes = report["dataset_validation"]["overlaps"]["notes"]
+    assert any("sin confirmación documental" in n.lower() for n in notes)
+    for n in notes:
+        if "astm" in n.lower():
+            assert "no se atribuye" in n.lower() or "sin confirmación" in n.lower()
+
+
+def test_evaluate_model_incompatible_runtime_error_reporting(tmp_path):
+    """Comprueba que si se intenta evaluar un modelo con runtime no disponible, se lance RuntimeError claro."""
+    from scripts.verify_model_load import find_mlmodel_dir, DEFAULT_MODELS_DIR
+    real_dir = find_mlmodel_dir(DEFAULT_MODELS_DIR)
+    if not real_dir:
+        pytest.skip("Modelo real no descargado en models/")
+
+    test_csv = tmp_path / "valid_test.csv"
+    create_sample_csv(test_csv, n_rows=5)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        evaluate_model(
+            model_path=real_dir,
+            job_name="real_model_test",
+            test_path=test_csv,
+            reports_dir=tmp_path / "reports"
+        )
+    assert "azureml" in str(exc_info.value).lower()
+
