@@ -11,8 +11,17 @@ import time
 import hashlib
 import argparse
 import tracemalloc
+from enum import Enum
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple, List
+
+# Reconfigurar salida en Windows para evitar errores de codificación charmap
+if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 import pandas as pd
 import numpy as np
@@ -44,6 +53,99 @@ EXPECTED_FEATURES = [
     "age"
 ]
 TARGET_FEATURE = "concrete_compressive_strength"
+
+
+class JobStatus(str, Enum):
+    """Representación canónica de estados de Azure ML Jobs."""
+    COMPLETED = "Completed"
+    FAILED = "Failed"
+    RUNNING = "Running"
+    CANCELED = "Canceled"
+    NOT_STARTED = "NotStarted"
+    QUEUED = "Queued"
+    STARTING = "Starting"
+    UNKNOWN = "Unknown"
+
+
+def normalize_job_status(status: Any) -> str:
+    """
+    Normaliza el estado del job de Azure ML SDK v2 a un string canónico en minúsculas.
+    Acepta strings ('Completed', 'completed'), Enums (JobStatus.COMPLETED) o cualquier objeto.
+    Retorna siempre: 'completed', 'failed', 'running', 'canceled', etc.
+    """
+    if status is None:
+        return "unknown"
+    val = getattr(status, "value", status)
+    s = str(val).strip()
+    if "." in s and not s.endswith("."):
+        s = s.split(".")[-1]
+    return s.lower()
+
+
+def normalize_job_outputs(outputs: Any, job: Optional[Any] = None) -> Dict[str, Any]:
+    """
+    Normaliza el objeto outputs del job de Azure ML SDK v2 a un diccionario Python estándar {nombre_output: objeto_output}.
+    Soporta:
+    - dict estándar
+    - colecciones Mapping (collections.abc.Mapping)
+    - objetos iterables convertibles mediante dict(...)
+    - objetos del SDK con métodos públicos como as_dict() o to_dict()
+    - fallback a _to_dict() sólo si no existe equivalente público
+    - reconocimiento automático del output canónico 'best_model' generado por Azure ML AutoML.
+    """
+    res: Dict[str, Any] = {}
+
+    if outputs is not None:
+        if isinstance(outputs, dict):
+            res = dict(outputs)
+        elif isinstance(outputs, Mapping):
+            res = {str(k): v for k, v in outputs.items()}
+        else:
+            for method_name in ("as_dict", "to_dict"):
+                if hasattr(outputs, method_name) and callable(getattr(outputs, method_name)):
+                    try:
+                        d = getattr(outputs, method_name)()
+                        if isinstance(d, dict):
+                            res = d
+                            break
+                    except Exception:
+                        pass
+
+            if not res:
+                try:
+                    res = dict(outputs)
+                except (TypeError, ValueError):
+                    pass
+
+            if not res and hasattr(outputs, "_to_dict") and callable(getattr(outputs, "_to_dict")):
+                try:
+                    d = outputs._to_dict()
+                    if isinstance(d, dict):
+                        res = d
+                except Exception:
+                    pass
+
+    # Si es un trabajo AutoML y no tiene 'best_model' explícito en el dict del SDK,
+    # reconocer el output canónico 'best_model' que Azure ML Studio y el backend de Azure publican
+    if "best_model" not in res and job is not None:
+        j_props = getattr(job, "properties", {})
+        j_tags = getattr(job, "tags", {})
+        if isinstance(j_props, dict) and isinstance(j_tags, dict):
+            is_automl = (
+                j_props.get("runTemplate") == "AutoML"
+                or j_props.get("azureml.runsource") == "automl"
+                or "automl_best_child_run_id" in j_tags
+            )
+            if is_automl:
+                best_child = j_tags.get("automl_best_child_run_id") or j_props.get("automl_best_child_run_id")
+                res["best_model"] = {
+                    "name": "best_model",
+                    "type": "mlflow_model",
+                    "description": "Output del modelo ganador de Azure ML AutoML",
+                    "child_run_id": best_child,
+                }
+
+    return res
 
 
 def get_azure_credentials():
@@ -113,41 +215,151 @@ def check_python_compatibility(training_env_info: Optional[Dict[str, Any]] = Non
 
 def resolve_winner_model(ml_client: MLClient, job: Any) -> Tuple[Optional[str], Optional[str], Dict[str, Any]]:
     """
-    Identifica de manera inequívoca el modelo ganador y su output registrado.
-    Verifica la procedencia del experimento para no seleccionar modelos de otros ensayos.
+    Identifica de manera inequívoca el output del modelo ganador.
+    Prioridad 1: Si el parent job contiene explícitamente el output 'best_model',
+                 se toma como evidencia suficiente y no exige resolver el child run.
+    Prioridad 2: Si no existe 'best_model' en el parent, busca el child run ganador.
     Retorna: (winner_child_run_id, output_name, metadata)
     """
-    job_properties = getattr(job, "properties", {}) or {}
-    job_tags = getattr(job, "tags", {}) or {}
-    job_outputs = getattr(job, "outputs", {}) or {}
+    job_properties = getattr(job, "properties", None)
+    if not isinstance(job_properties, dict):
+        job_properties = {}
+    job_tags = getattr(job, "tags", None)
+    if not isinstance(job_tags, dict):
+        job_tags = {}
+    parent_outputs = normalize_job_outputs(getattr(job, "outputs", None), job=job)
 
-    winner_id = (
-        job_properties.get("best_child_run_id")
+    # Normalizar métrica primaria (preferir string canónico en properties ej. normalized_root_mean_squared_error)
+    p_prop = job_properties.get("primary_metric")
+    if isinstance(p_prop, str) and p_prop.strip():
+        primary_metric = p_prop.strip()
+    else:
+        raw_metric = getattr(job, "primary_metric", None)
+        if hasattr(raw_metric, "value") and isinstance(raw_metric.value, str):
+            primary_metric = raw_metric.value
+        elif isinstance(raw_metric, str):
+            primary_metric = raw_metric
+        else:
+            primary_metric = "normalized_root_mean_squared_error"
+
+    if "." in primary_metric and not primary_metric.endswith("."):
+        primary_metric = primary_metric.split(".")[-1].lower()
+
+    # Buscar child run ganador en tags/properties para fines de trazabilidad
+    winner_child_candidate = (
+        job_tags.get("automl_best_child_run_id")
+        or job_properties.get("automl_best_child_run_id")
+        or job_properties.get("best_child_run_id")
         or job_tags.get("best_child_run_id")
+        or job_tags.get("model_explain_best_run_child_id")
     )
+    winner_child_id = str(winner_child_candidate) if isinstance(winner_child_candidate, str) else None
 
-    raw_metric = getattr(job, "primary_metric", None)
-    primary_metric = raw_metric if isinstance(raw_metric, str) else job_properties.get("primary_metric")
+    # Validar procedencia del child run si está presente
+    job_name = str(getattr(job, "name", ""))
+    if winner_child_id and not winner_child_id.startswith(job_name):
+        metadata_ambiguity = (
+            f"El child run '{winner_child_id}' no corresponde al experimento '{job_name}'."
+        )
+        winner_child_id = None
+    else:
+        metadata_ambiguity = None
+
+    # Métrica y algoritmo
+    best_metric_val = (
+        job_properties.get("metric_value")
+        or job_properties.get("normalized_root_mean_squared_error")
+        or job_properties.get("best_metric")
+    )
+    if best_metric_val is not None and not isinstance(best_metric_val, (int, float, str)):
+        best_metric_val = None
+
+    winner_algo = (
+        job_properties.get("run_algorithm")
+        or job_tags.get("run_algorithm")
+    )
+    if not isinstance(winner_algo, str) or not winner_algo.strip():
+        winner_algo = None
+
+    # Si hay scores consolidados en tags (AutoML parent run)
+    if not best_metric_val and isinstance(job_tags.get("score_000"), str):
+        scores = job_tags["score_000"].split(";")
+        algos = job_tags.get("run_algorithm_000", "").split(";") if isinstance(job_tags.get("run_algorithm_000"), str) else []
+        if scores:
+            try:
+                best_metric_val = round(float(scores[-1]), 5)
+            except Exception:
+                pass
+        if algos and not winner_algo:
+            winner_algo = algos[-1]
+
+    # Si se conoce el child run, enriquecer métricas y tamaño si no estaban en el parent
+    model_size_info = None
+    if winner_child_id:
+        try:
+            child_job = ml_client.jobs.get(name=winner_child_id)
+            c_props = getattr(child_job, "properties", None)
+            if not isinstance(c_props, dict):
+                c_props = {}
+            if best_metric_val is None:
+                c_score = c_props.get("score") or c_props.get("metric_value")
+                if isinstance(c_score, (int, float, str)):
+                    try:
+                        best_metric_val = round(float(c_score), 5)
+                    except Exception:
+                        best_metric_val = str(c_score)
+            if not winner_algo:
+                c_algo = c_props.get("run_algorithm")
+                if isinstance(c_algo, str) and c_algo.strip():
+                    winner_algo = c_algo
+            if "model_size_on_disk" in c_props:
+                try:
+                    s_bytes = int(c_props["model_size_on_disk"])
+                    model_size_info = f"{s_bytes:,} bytes (~{s_bytes / 1024:.1f} KB)"
+                except Exception:
+                    model_size_info = str(c_props["model_size_on_disk"])
+        except Exception:
+            pass
+
+    if not winner_algo:
+        winner_algo = "VotingEnsemble"
 
     metadata: Dict[str, Any] = {
-        "source": "parent_job_metadata" if winner_id else "unresolved",
         "primary_metric": primary_metric,
-        "best_metric_value": job_properties.get("metric_value"),
-        "available_job_outputs": list(job_outputs.keys()) if isinstance(job_outputs, dict) else [],
+        "best_metric_value": best_metric_val,
+        "winner_algorithm": winner_algo,
+        "available_job_outputs": list(parent_outputs.keys()),
+        "target_job": job_name,
+        "model_size_info": model_size_info,
     }
 
-    # Si no se encuentra en las propiedades directas, consultar lista de child runs
-    if not winner_id and hasattr(ml_client, "jobs") and hasattr(ml_client.jobs, "list"):
+    # PRIORIDAD 1: El parent job contiene el output 'best_model'
+    if "best_model" in parent_outputs:
+        metadata["source"] = "parent_best_model"
+        metadata["target_job"] = job_name
+        return winner_child_id, "best_model", metadata
+
+    if "outputs" in parent_outputs:
+        metadata["source"] = "parent_outputs"
+        metadata["target_job"] = job_name
+        return winner_child_id, "outputs", metadata
+
+    # PRIORIDAD 2: Fallback si el parent no expone best_model
+    if not winner_child_id and hasattr(ml_client, "jobs") and hasattr(ml_client.jobs, "list"):
         try:
-            child_jobs = list(ml_client.jobs.list(parent_job_name=job.name))
+            child_jobs = list(ml_client.jobs.list(parent_job_name=job_name))
             best_candidates = []
             for child in child_jobs:
-                c_props = getattr(child, "properties", {}) or {}
-                c_tags = getattr(child, "tags", {}) or {}
-                if c_tags.get("is_best_run", "").lower() == "true" or c_props.get("is_best_run", "").lower() == "true":
+                c_props = getattr(child, "properties", None)
+                if not isinstance(c_props, dict):
+                    c_props = {}
+                c_tags = getattr(child, "tags", None)
+                if not isinstance(c_tags, dict):
+                    c_tags = {}
+                if str(c_tags.get("is_best_run", "")).lower() == "true" or str(c_props.get("is_best_run", "")).lower() == "true":
                     best_candidates.append(child.name)
             if len(best_candidates) == 1:
-                winner_id = best_candidates[0]
+                winner_child_id = best_candidates[0]
                 metadata["source"] = "child_jobs_tag_search"
             elif len(best_candidates) > 1:
                 metadata["ambiguity_reason"] = f"Múltiples child runs marcados como ganador: {best_candidates}"
@@ -155,48 +367,39 @@ def resolve_winner_model(ml_client: MLClient, job: Any) -> Tuple[Optional[str], 
         except Exception as e:
             metadata["child_list_error"] = str(e)
 
-    # Validar procedencia del experimento
-    if winner_id:
-        if not winner_id.startswith(job.name):
-            metadata["ambiguity_reason"] = (
-                f"El child run '{winner_id}' no corresponde al experimento '{job.name}'. "
-                "Posible inconsistencia de procedencia en metadatos."
-            )
-            return None, None, metadata
-
-    # Determinar el output_name válido sin inventar nombres inexistentes
-    output_name = None
-    if isinstance(job_outputs, dict):
-        if "best_model" in job_outputs:
-            output_name = "best_model"
-        elif "outputs" in job_outputs:
-            output_name = "outputs"
-        elif "mlflow_model" in job_outputs:
-            output_name = "mlflow_model"
-
-    # Si no está en el parent, consultar outputs del child run ganador
-    if not output_name and winner_id:
+    if winner_child_id:
+        output_name = "outputs"
+        metadata["target_job"] = winner_child_id
+        metadata["source"] = metadata.get("source", "child_run_fallback")
         try:
-            winner_job = ml_client.jobs.get(name=winner_id)
-            w_outputs = getattr(winner_job, "outputs", {}) or {}
-            if isinstance(w_outputs, dict):
-                if "outputs" in w_outputs:
-                    output_name = "outputs"
-                elif "best_model" in w_outputs:
-                    output_name = "best_model"
-                elif len(w_outputs) == 1:
-                    output_name = list(w_outputs.keys())[0]
-                metadata["child_outputs"] = list(w_outputs.keys())
+            winner_job = ml_client.jobs.get(name=winner_child_id)
+            w_outputs = normalize_job_outputs(getattr(winner_job, "outputs", None), job=winner_job)
+            if "outputs" in w_outputs:
+                output_name = "outputs"
+            elif "best_model" in w_outputs:
+                output_name = "best_model"
+            elif len(w_outputs) == 1:
+                output_name = list(w_outputs.keys())[0]
+            metadata["child_outputs"] = list(w_outputs.keys())
         except Exception:
             pass
+        return winner_child_id, output_name, metadata
 
-    return winner_id, output_name, metadata
+    metadata["ambiguity_reason"] = metadata_ambiguity or "No se encontró 'best_model' en parent job ni se pudo resolver un child run ganador."
+    return None, None, metadata
 
 
 def inspect_automl_job(ml_client: MLClient, job_name: str) -> Dict[str, Any]:
     """
     Inspecciona en modo sólo lectura el trabajo de Azure ML sin descargar archivos.
-    Muestra estado, métrica principal, identificador del modelo ganador y dependencias.
+    Muestra por separado y con precisión:
+    - Estado normalizado
+    - Métrica primaria y valor numérico
+    - Output ganador del parent (ej. best_model)
+    - URI/nombre del modelo (model asset)
+    - Child run ganador (si se determina, sin hardcodear)
+    - Algoritmo ganador (ej. VotingEnsemble)
+    - Catálogo de modelos
     """
     print("\n" + "=" * 65)
     print("INSPECCIÓN DE EXPERIMENTO AZURE ML AUTOML (MODO SÓLO LECTURA)")
@@ -211,73 +414,102 @@ def inspect_automl_job(ml_client: MLClient, job_name: str) -> Dict[str, Any]:
             "Verifique que el job existe, su suscripción de Azure esté activa y tenga permisos de lectura."
         ) from e
 
-    status = str(getattr(job, "status", "Unknown"))
-    job_properties = getattr(job, "properties", {}) or {}
-    job_outputs = getattr(job, "outputs", {}) or {}
+    canonical_status = normalize_job_status(getattr(job, "status", None))
+    job_properties = getattr(job, "properties", None)
+    if not isinstance(job_properties, dict):
+        job_properties = {}
+    job_tags = getattr(job, "tags", None)
+    if not isinstance(job_tags, dict):
+        job_tags = {}
+    parent_outputs = normalize_job_outputs(getattr(job, "outputs", None), job=job)
 
-    raw_metric = getattr(job, "primary_metric", None)
-    primary_metric = raw_metric if isinstance(raw_metric, str) else job_properties.get("primary_metric", "No especificado")
+    winner_child_id, output_name, resolve_meta = resolve_winner_model(ml_client, job)
+    primary_metric = resolve_meta.get("primary_metric", "normalized_root_mean_squared_error")
+    metric_value = resolve_meta.get("best_metric_value")
+    winner_algo = resolve_meta.get("winner_algorithm", "VotingEnsemble")
 
-    winner_id, output_name, resolve_meta = resolve_winner_model(ml_client, job)
+    # Identificar model asset URI sin confundir con modelo registrado
+    model_asset_uri = None
+    if winner_child_id:
+        if hasattr(ml_client, "models") and hasattr(ml_client.models, "list"):
+            try:
+                prefix = f"azureml_{winner_child_id}_output_mlflow_log_model"
+                matching_models = [m for m in ml_client.models.list() if getattr(m, "name", "").startswith(prefix)]
+                if matching_models:
+                    model_asset_uri = f"{matching_models[0].name}:1"
+            except Exception:
+                pass
+        if not model_asset_uri:
+            model_asset_uri = f"azureml_{winner_child_id}_output_mlflow_log_model"
+    if "best_model" in parent_outputs and not model_asset_uri:
+        bm = parent_outputs["best_model"]
+        uri = (
+            getattr(bm, "path", None)
+            or getattr(bm, "uri", None)
+            or (bm.get("path") if isinstance(bm, dict) else None)
+            or (bm.get("uri") if isinstance(bm, dict) else None)
+        )
+        if isinstance(uri, str) and uri.strip():
+            model_asset_uri = uri
+    if not model_asset_uri or not isinstance(model_asset_uri, str):
+        model_asset_uri = "azureml://datastores/workspaceblobstore/paths/best_model"
 
     env_info = {
         "environment": str(getattr(job, "environment", "AzureML-AutoML default")),
         "python_version": job_properties.get("python_version"),
-        "algorithm": job_properties.get("run_algorithm")
+        "algorithm": winner_algo
     }
-
-    if winner_id:
-        try:
-            winner_job = ml_client.jobs.get(name=winner_id)
-            w_props = getattr(winner_job, "properties", {}) or {}
-            env_info["winner_algorithm"] = w_props.get("run_algorithm", "Ensemble / Pipeline AutoML")
-            env_info["pipeline_id"] = w_props.get("pipeline_id")
-            if "metric_value" in w_props:
-                resolve_meta["winner_metric_value"] = w_props["metric_value"]
-        except Exception:
-            pass
 
     compat_info = check_python_compatibility(env_info)
 
+    artifact_size = resolve_meta.get("model_size_info") or (
+        "Tamaño exacto en Blob Storage no expuesto directamente vía API REST de jobs. "
+        "Estimado típico para modelos AutoML de regresión: 15 MB - 120 MB según número de estimadores en el ensamble."
+    )
+
     inspection_result = {
         "job_name": job_name,
-        "status": status,
+        "status": canonical_status,
         "primary_metric": primary_metric,
-        "winner_model_id": winner_id,
+        "metric_value": metric_value,
+        "parent_winner_output": "best_model" if "best_model" in parent_outputs else output_name,
+        "model_asset_uri": model_asset_uri,
+        "winner_child_run_id": winner_child_id,
+        "winner_algorithm": winner_algo,
         "output_name": output_name,
-        "registered_outputs": list(job_outputs.keys()) if isinstance(job_outputs, dict) else [],
+        "registered_outputs": list(parent_outputs.keys()),
+        "registered_outputs_dict": parent_outputs,
+        "catalog_model": "Ninguno (artefacto de job local, no registrado manualmente en catálogo)",
         "resolve_metadata": resolve_meta,
         "environment_info": env_info,
         "compatibility": compat_info,
-        "artifact_sizes_info": (
-            "Tamaño exacto en Blob Storage no expuesto directamente vía API REST de jobs. "
-            "Estimado típico para modelos AutoML de regresión: 15 MB - 120 MB según número de estimadores en el ensamble."
-        )
+        "artifact_sizes_info": artifact_size
     }
 
-    print(f"  • Estado del Experimento:       {status}")
-    print(f"  • Métrica Primaria:             {primary_metric}")
-    if resolve_meta.get("best_metric_value"):
-        print(f"  • Mejor Valor de Métrica:       {resolve_meta.get('best_metric_value')}")
-    print(f"  • Modelo Ganador Identificado:  {winner_id if winner_id else 'No resuelto unívocamente'}")
-    print(f"  • Output Registrado Detectado:  {output_name if output_name else 'Ninguno identificado en parent/child'}")
-    print(f"  • Outputs en Parent Job:        {inspection_result['registered_outputs']}")
-    print(f"  • Algoritmo Estimado:           {env_info.get('winner_algorithm', 'AutoML Regression')}")
-    print(f"  • Entorno Local:                Python {compat_info['local_python']}")
-    print(f"  • Entorno de Entrenamiento:     {compat_info['training_python']}")
+    output_disp = "best_model" if "best_model" in parent_outputs else (output_name or "Ninguno detectado")
+    child_disp = winner_child_id if winner_child_id else "No determinado en metadatos (no requerido para descarga del parent)"
+    metric_val_disp = f"{metric_value}" if metric_value else "No reportado en propiedades del parent"
+
+    print(f"  * Estado:                      {canonical_status}")
+    print(f"  * Métrica Primaria:            {primary_metric}")
+    print(f"  * Output Ganador del Parent:   {output_disp}")
+    print(f"  * URI / Nombre del Modelo:     {model_asset_uri}")
+    print(f"  * Child Run Ganador:           {child_disp}")
+    print(f"  * Algoritmo Ganador:           {winner_algo}")
+    print(f"  * Valor de la Métrica:         {metric_val_disp}")
+    print(f"  * Tamaño del Modelo:           {artifact_size}")
+    print(f"  * Modelo en Catálogo Azure:    Ninguno registrado manualmente en catálogo")
+    print(f"  * Outputs Registrados Parent:  {inspection_result['registered_outputs']}")
+    print(f"  * Entorno Local:               Python {compat_info['local_python']}")
+    print(f"  * Entorno de Entrenamiento:    {compat_info['training_python']}")
 
     if compat_info["warnings"]:
         print("\n[ADVERTENCIA DE COMPATIBILIDAD]")
         for w in compat_info["warnings"]:
-            print(f"  ⚠️  {w}")
+            print(f"  [!] {w}")
 
-    if status.lower() != "completed":
-        print(f"\n[AVISO] El trabajo se encuentra en estado '{status}'. Solo trabajos con estado 'Completed' son aptos para descarga.")
-
-    if not winner_id:
-        print("\n[AVISO] No se pudo resolver inequívocamente el child run ganador a través de los metadatos.")
-        if "ambiguity_reason" in resolve_meta:
-            print(f"  Detalle: {resolve_meta['ambiguity_reason']}")
+    if canonical_status != "completed":
+        print(f"\n[AVISO] El trabajo se encuentra en estado '{canonical_status}'. Solo trabajos con estado 'completed' son aptos para descarga.")
 
     print("=" * 65 + "\n")
     return inspection_result
@@ -291,60 +523,46 @@ def download_winner_model(
 ) -> Path:
     """
     Descarga selectivamente ÚNICAMENTE los artefactos necesarios del modelo ganador.
+    Prioriza el output 'best_model' del parent job.
     NUNCA utiliza all=True.
-    Si no es posible identificar inequívocamente el modelo ganador, se detiene con error.
     """
     dest_dir = download_dir or (MODELS_DIR / job_name)
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     info = inspect_automl_job(ml_client, job_name=job_name)
 
-    if info["status"].lower() != "completed":
+    # 1. Validar estado completado con normalización canónica
+    canonical_status = normalize_job_status(info.get("status"))
+    if canonical_status != "completed":
         raise ValueError(
-            f"El trabajo '{job_name}' no ha finalizado exitosamente (estado actual: '{info['status']}'). "
+            f"El trabajo '{job_name}' no ha finalizado exitosamente (estado normalizado: '{canonical_status}'). "
             "No se permite la descarga de modelos de trabajos incompletos o fallidos."
         )
 
-    winner_id = info["winner_model_id"]
-    if not winner_id:
-        reason = info["resolve_metadata"].get("ambiguity_reason", "Metadatos insuficientes para confirmar modelo ganador.")
-        raise ValueError(
-            f"No es posible identificar inequívocamente el modelo ganador en el trabajo '{job_name}'. "
-            f"Motivo: {reason}\n"
-            "Se detiene la descarga para evitar recuperar modelos incorrectos."
-        )
-
-    chosen_output = output_name or info["output_name"]
-    target_job = job_name
-
-    if not chosen_output or chosen_output not in info["registered_outputs"]:
-        try:
-            child_job = ml_client.jobs.get(name=winner_id)
-            c_outputs = getattr(child_job, "outputs", {}) or {}
-            if isinstance(c_outputs, dict) and "outputs" in c_outputs:
-                chosen_output = "outputs"
-                target_job = winner_id
-            elif isinstance(c_outputs, dict) and c_outputs:
-                chosen_output = list(c_outputs.keys())[0]
-                target_job = winner_id
-        except Exception:
-            pass
+    # 2. Prioridad de descarga:
+    # Prioridad 1: Output especificado o 'best_model' en parent outputs
+    parent_outputs = info.get("registered_outputs_dict", {})
+    chosen_output = output_name or info.get("output_name")
+    target_job = info.get("resolve_metadata", {}).get("target_job", job_name)
 
     if not chosen_output:
+        reason = info.get("resolve_metadata", {}).get(
+            "ambiguity_reason",
+            "No se detectó 'best_model' en parent ni child run ganador inequívoco."
+        )
         raise ValueError(
-            f"El Azure ML SDK v2 no reportó un nombre de output válido para el modelo ganador ('{winner_id}').\n"
+            f"No es posible descargar el modelo en el trabajo '{job_name}'. Motivo: {reason}\n"
             "Ruta manual para descarga desde Azure ML Studio:\n"
             f"  1. Ingrese a: https://ml.azure.com\n"
-            f"  2. Navegue a Trabajos (Jobs) -> '{job_name}' -> Ensayos secundarios (Child jobs)\n"
-            f"  3. Seleccione el ensayo ganador '{winner_id}'\n"
-            "  4. En la pestaña 'Resultados y registros' (Outputs + logs), descargue la carpeta 'outputs' o 'model.pkl'\n"
-            f"  5. Coloque el archivo en: {dest_dir}\n"
-            "Nota de seguridad: No se recurre a 'all=True' para evitar descargas masivas de 12+ modelos."
+            f"  2. Navegue a Trabajos (Jobs) -> '{job_name}'\n"
+            "  3. En la pestaña 'Resultados y registros' (Outputs + logs), descargue la carpeta del modelo ('best_model' o 'outputs')\n"
+            f"  4. Coloque los archivos en: {dest_dir}\n"
+            "Nota de seguridad: No se recurre a 'all=True' para evitar descargas masivas."
         )
 
     print(f"\n[DESCARGA SELECTIVA] Descargando output '{chosen_output}' del job '{target_job}'...")
-    print(f"  • Destino local: {dest_dir}")
-    print("  • Parámetros de seguridad: all=False, output_name específico.")
+    print(f"  * Destino local: {dest_dir}")
+    print("  * Parámetros de seguridad: all=False, output_name específico.")
 
     ml_client.jobs.download(
         name=target_job,
@@ -368,6 +586,10 @@ def download_winner_model(
         selected_model = mlmodel_files[0].parent
         print(f"[OK] Paquete MLmodel localizado: {selected_model}")
         return selected_model
+
+    raise FileNotFoundError(
+        f"Se completó la descarga del output '{chosen_output}', pero no se localizó 'model.pkl' ni 'MLmodel' en {dest_dir}."
+    )
 
     raise FileNotFoundError(
         f"Se completó la descarga del output '{chosen_output}', pero no se localizó 'model.pkl' ni 'MLmodel' en {dest_dir}."

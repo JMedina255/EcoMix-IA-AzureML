@@ -1,14 +1,18 @@
 """
-Pruebas automatizadas para COMMIT 1:
-Inspección segura y descarga selectiva de modelos AutoML en Azure ML.
+Pruebas automatizadas para inspección segura, normalización de estado,
+resolución de outputs y descarga selectiva de modelos AutoML en Azure ML.
 Todas las pruebas se ejecutan con clientes simulados (mocks) sin requerir credenciales reales ni conexión de red.
 """
 
-import pytest
-from unittest.mock import MagicMock, patch
+from collections.abc import Mapping
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+import pytest
 
 from src.evaluate_model import (
+    JobStatus,
+    normalize_job_status,
+    normalize_job_outputs,
     inspect_automl_job,
     download_winner_model,
     resolve_winner_model,
@@ -16,6 +20,260 @@ from src.evaluate_model import (
     main,
 )
 
+
+# ==============================================================================
+# 1. Pruebas de Normalización de JobStatus
+# ==============================================================================
+
+def test_normalize_job_status_canonical_outputs():
+    """Comprueba que normalize_job_status produce siempre strings canónicos en minúsculas."""
+    assert normalize_job_status(JobStatus.COMPLETED) == "completed"
+    assert normalize_job_status("Completed") == "completed"
+    assert normalize_job_status("completed") == "completed"
+    assert normalize_job_status("COMPLETED") == "completed"
+
+    assert normalize_job_status(JobStatus.FAILED) == "failed"
+    assert normalize_job_status("Failed") == "failed"
+    assert normalize_job_status("failed") == "failed"
+
+    assert normalize_job_status(JobStatus.RUNNING) == "running"
+    assert normalize_job_status("Running") == "running"
+    assert normalize_job_status("running") == "running"
+
+    assert normalize_job_status(JobStatus.CANCELED) == "canceled"
+    assert normalize_job_status("Canceled") == "canceled"
+
+    # Objetos con prefijos o atributos
+    class DummyEnum:
+        value = "Completed"
+    assert normalize_job_status(DummyEnum()) == "completed"
+
+    assert normalize_job_status(None) == "unknown"
+
+
+# ==============================================================================
+# 2. Pruebas de Normalización de job.outputs
+# ==============================================================================
+
+class CustomMapping(Mapping):
+    """Implementación de Mapping para simular objetos estructurados del SDK."""
+    def __init__(self, data):
+        self._data = data
+
+    def __getitem__(self, key):
+        return self._data[key]
+
+    def __len__(self):
+        return len(self._data)
+
+    def __iter__(self):
+        return iter(self._data)
+
+
+class ObjectWithAsDict:
+    """Simula objeto con método público as_dict()."""
+    def __init__(self, data):
+        self.data = data
+
+    def as_dict(self):
+        return self.data
+
+
+class ObjectWithToDictPrivate:
+    """Simula objeto con método _to_dict()."""
+    def __init__(self, data):
+        self.data = data
+
+    def _to_dict(self):
+        return self.data
+
+
+def test_normalize_job_outputs_various_formats():
+    """Comprueba que normalize_job_outputs maneja dict, Mapping, as_dict() y _to_dict()."""
+    expected = {"best_model": "mock_output_obj"}
+
+    # Caso 1: Dict estándar
+    assert normalize_job_outputs({"best_model": "mock_output_obj"}) == expected
+
+    # Caso 2: Objeto Mapping
+    mapping_obj = CustomMapping({"best_model": "mock_output_obj"})
+    assert normalize_job_outputs(mapping_obj) == expected
+
+    # Caso 3: Iterable convertible vía dict(...)
+    pairs = [("best_model", "mock_output_obj")]
+    assert normalize_job_outputs(pairs) == expected
+
+    # Caso 4: Método público as_dict()
+    assert normalize_job_outputs(ObjectWithAsDict(expected)) == expected
+
+    # Caso 5: Método _to_dict()
+    assert normalize_job_outputs(ObjectWithToDictPrivate(expected)) == expected
+
+    # Caso 6: None / vacío
+    assert normalize_job_outputs(None) == {}
+    assert normalize_job_outputs({}) == {}
+
+
+# ==============================================================================
+# 3. Casos Reales del Experimento AutoML (Casos A, B, C, D)
+# ==============================================================================
+
+def test_caso_a_parent_best_model_without_winner_id_allows_download(tmp_path):
+    """
+    CASO A:
+    status = JobStatus.COMPLETED
+    outputs = {'best_model': ...}
+    winner_id = None
+    Resultado: Descarga permitida del parent/best_model directamente.
+    """
+    mock_ml_client = MagicMock()
+    mock_job = MagicMock()
+    mock_job.name = "wheat_cheese_4swj34tkjn"
+    mock_job.status = JobStatus.COMPLETED
+    mock_job.properties = {
+        "primary_metric": "normalized_root_mean_squared_error",
+        "metric_value": "0.05859",
+        "run_algorithm": "VotingEnsemble"
+    }
+    # outputs como Mapping estructurado conteniendo 'best_model'
+    mock_best_model_output = MagicMock()
+    mock_best_model_output.path = "azureml://datastores/workspaceblobstore/paths/best_model"
+    mock_job.outputs = CustomMapping({"best_model": mock_best_model_output})
+    mock_ml_client.jobs.get.return_value = mock_job
+
+    target_dir = tmp_path / "wheat_cheese_4swj34tkjn"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    fake_model = target_dir / "best_model" / "model.pkl"
+    fake_model.parent.mkdir(parents=True, exist_ok=True)
+    fake_model.write_bytes(b"dummy_voting_ensemble_model")
+
+    # Ejecutar descarga
+    model_path = download_winner_model(
+        mock_ml_client,
+        job_name="wheat_cheese_4swj34tkjn",
+        download_dir=target_dir
+    )
+
+    # Verificar que descargó directamente el output del parent job sin necesidad de winner_id
+    mock_ml_client.jobs.download.assert_called_once()
+    _, kwargs = mock_ml_client.jobs.download.call_args
+    assert kwargs.get("output_name") == "best_model"
+    assert kwargs.get("all") is False
+    assert model_path.exists()
+
+
+def test_caso_b_completed_string_recognized_correctly():
+    """
+    CASO B:
+    status = 'Completed'
+    best_model presente
+    Resultado: 'Completed' reconocido canónicamente como 'completed'.
+    """
+    mock_ml_client = MagicMock()
+    mock_job = MagicMock()
+    mock_job.name = "wheat_cheese_4swj34tkjn"
+    mock_job.status = "Completed"
+    mock_job.properties = {
+        "primary_metric": "normalized_root_mean_squared_error",
+        "metric_value": "0.05859"
+    }
+    mock_job.outputs = {"best_model": MagicMock()}
+    mock_ml_client.jobs.get.return_value = mock_job
+
+    result = inspect_automl_job(mock_ml_client, "wheat_cheese_4swj34tkjn")
+
+    assert result["status"] == "completed"
+    assert result["output_name"] == "best_model"
+    assert result["parent_winner_output"] == "best_model"
+
+
+def test_caso_c_fallback_to_unequivocal_winner_child(tmp_path):
+    """
+    CASO C:
+    best_model ausente en parent
+    winner child inequívoco en metadatos
+    Resultado: Usar fallback de child run.
+    """
+    mock_ml_client = MagicMock()
+    mock_job = MagicMock()
+    mock_job.name = "wheat_cheese_4swj34tkjn"
+    mock_job.status = "completed"
+    mock_job.properties = {
+        "best_child_run_id": "wheat_cheese_4swj34tkjn_11",
+        "primary_metric": "normalized_root_mean_squared_error",
+    }
+    # Sin best_model en el parent
+    mock_job.outputs = {}
+
+    # Mock del child run ganador
+    mock_child_job = MagicMock()
+    mock_child_job.name = "wheat_cheese_4swj34tkjn_11"
+    mock_child_job.outputs = {"outputs": MagicMock()}
+
+    def get_job_side_effect(name):
+        if name == "wheat_cheese_4swj34tkjn":
+            return mock_job
+        if name == "wheat_cheese_4swj34tkjn_11":
+            return mock_child_job
+        raise ValueError(f"Job no encontrado: {name}")
+
+    mock_ml_client.jobs.get.side_effect = get_job_side_effect
+
+    target_dir = tmp_path / "wheat_cheese_4swj34tkjn"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    fake_model = target_dir / "outputs" / "model.pkl"
+    fake_model.parent.mkdir(parents=True, exist_ok=True)
+    fake_model.write_bytes(b"dummy_child_model")
+
+    model_path = download_winner_model(
+        mock_ml_client,
+        job_name="wheat_cheese_4swj34tkjn",
+        download_dir=target_dir
+    )
+
+    mock_ml_client.jobs.download.assert_called_once()
+    args, kwargs = mock_ml_client.jobs.download.call_args
+    # Debe descargar desde el child run
+    assert kwargs.get("name") == "wheat_cheese_4swj34tkjn_11" or (args and args[0] == "wheat_cheese_4swj34tkjn_11")
+    assert kwargs.get("output_name") == "outputs"
+    assert kwargs.get("all") is False
+
+
+def test_caso_d_best_model_absent_and_child_ambiguous_halts_download(tmp_path):
+    """
+    CASO D:
+    best_model ausente en parent
+    winner child ambiguo / no determinable
+    Resultado: Detener descarga con mensaje explicativo.
+    """
+    mock_ml_client = MagicMock()
+    mock_job = MagicMock()
+    mock_job.name = "wheat_cheese_4swj34tkjn"
+    mock_job.status = "Completed"
+    mock_job.properties = {}  # Sin best_child_run_id
+    mock_job.outputs = {}     # Sin best_model
+
+    # Dos child runs sin ganador claro
+    child_1 = MagicMock(name="child_1", properties={}, tags={})
+    child_2 = MagicMock(name="child_2", properties={}, tags={})
+    mock_ml_client.jobs.get.return_value = mock_job
+    mock_ml_client.jobs.list.return_value = [child_1, child_2]
+
+    with pytest.raises(ValueError) as exc_info:
+        download_winner_model(
+            mock_ml_client,
+            job_name="wheat_cheese_4swj34tkjn",
+            download_dir=tmp_path
+        )
+
+    error_msg = str(exc_info.value).lower()
+    assert "no es posible descargar el modelo" in error_msg
+    mock_ml_client.jobs.download.assert_not_called()
+
+
+# ==============================================================================
+# 4. Pruebas de CLI y Trazabilidad General
+# ==============================================================================
 
 def test_cli_default_mode_is_inspect():
     """Comprueba que el modo predeterminado de la CLI es --inspect, no --download."""
@@ -33,21 +291,19 @@ def test_inspect_does_not_download_files():
     mock_job.name = "wheat_cheese_4swj34tkjn"
     mock_job.status = "Completed"
     mock_job.properties = {
-        "best_child_run_id": "wheat_cheese_4swj34tkjn_12",
+        "best_child_run_id": "wheat_cheese_4swj34tkjn_11",
         "primary_metric": "normalized_root_mean_squared_error",
-        "metric_value": "0.045",
+        "metric_value": "0.05859",
         "run_algorithm": "VotingEnsemble"
     }
-    mock_job.tags = {"project": "EcoMix-IA"}
     mock_job.outputs = {"best_model": MagicMock()}
     mock_ml_client.jobs.get.return_value = mock_job
 
     result = inspect_automl_job(mock_ml_client, "wheat_cheese_4swj34tkjn")
 
-    assert result["status"] == "Completed"
-    assert result["winner_model_id"] == "wheat_cheese_4swj34tkjn_12"
+    assert result["status"] == "completed"
     assert result["primary_metric"] == "normalized_root_mean_squared_error"
-    # Asegurar que nunca se llamó a download
+    assert result["winner_algorithm"] == "VotingEnsemble"
     mock_ml_client.jobs.download.assert_not_called()
 
 
@@ -69,10 +325,9 @@ def test_incomplete_job_prevents_download(tmp_path):
     mock_ml_client = MagicMock()
     mock_job = MagicMock()
     mock_job.name = "wheat_cheese_4swj34tkjn"
-    mock_job.status = "Running"
+    mock_job.status = JobStatus.RUNNING
     mock_job.properties = {}
-    mock_job.tags = {}
-    mock_job.outputs = {}
+    mock_job.outputs = {"best_model": MagicMock()}
     mock_ml_client.jobs.get.return_value = mock_job
 
     with pytest.raises(ValueError) as exc_info:
@@ -83,80 +338,20 @@ def test_incomplete_job_prevents_download(tmp_path):
     mock_ml_client.jobs.download.assert_not_called()
 
 
-def test_ambiguous_model_selection_prevents_download(tmp_path):
-    """Comprueba que si no se puede identificar unívocamente el ganador, se cancela la descarga."""
-    mock_ml_client = MagicMock()
-    mock_job = MagicMock()
-    mock_job.name = "wheat_cheese_4swj34tkjn"
-    mock_job.status = "Completed"
-    mock_job.properties = {}  # Sin best_child_run_id
-    mock_job.tags = {}
-    mock_job.outputs = {}
-    mock_ml_client.jobs.get.return_value = mock_job
-
-    # Simulamos múltiples child runs donde ninguno tiene marca de ganador
-    child_1 = MagicMock(name="child_1", status="Completed", properties={}, tags={})
-    child_2 = MagicMock(name="child_2", status="Completed", properties={}, tags={})
-    mock_ml_client.jobs.list.return_value = [child_1, child_2]
-
-    with pytest.raises(ValueError) as exc_info:
-        download_winner_model(mock_ml_client, "wheat_cheese_4swj34tkjn", download_dir=tmp_path)
-
-    assert "no es posible identificar inequívocamente" in str(exc_info.value).lower()
-    mock_ml_client.jobs.download.assert_not_called()
-
-
-def test_download_never_uses_all_true(tmp_path):
-    """Comprueba que --download NUNCA utiliza all=True y pasa output_name específico."""
-    mock_ml_client = MagicMock()
-    mock_job = MagicMock()
-    mock_job.name = "wheat_cheese_4swj34tkjn"
-    mock_job.status = "Completed"
-    mock_job.properties = {
-        "best_child_run_id": "wheat_cheese_4swj34tkjn_12",
-        "primary_metric": "normalized_root_mean_squared_error",
-    }
-    mock_job.tags = {"project": "EcoMix-IA"}
-    mock_job.outputs = {"best_model": MagicMock()}
-    mock_ml_client.jobs.get.return_value = mock_job
-
-    # Creamos un archivo simulado model.pkl en la carpeta destino para simular descarga
-    target_dir = tmp_path / "wheat_cheese_4swj34tkjn"
-    target_dir.mkdir(parents=True, exist_ok=True)
-    fake_model = target_dir / "best_model" / "model.pkl"
-    fake_model.parent.mkdir(parents=True, exist_ok=True)
-    fake_model.write_bytes(b"dummy_serialized_model")
-
-    model_path = download_winner_model(
-        mock_ml_client,
-        job_name="wheat_cheese_4swj34tkjn",
-        download_dir=target_dir
-    )
-
-    mock_ml_client.jobs.download.assert_called_once()
-    call_args, call_kwargs = mock_ml_client.jobs.download.call_args
-
-    # Verificaciones estrictas del contrato de seguridad:
-    assert call_kwargs.get("all") is False, "El parámetro 'all' debe ser estrictamente False"
-    assert call_kwargs.get("output_name") == "best_model", "Debe descargar un output específico registrado"
-    assert model_path.exists()
-
-
 def test_model_selection_respects_experiment_provenance():
-    """Comprueba que si el modelo ganador reportado pertenece a otro experimento, se rechaza."""
+    """Comprueba que si el child run reportado pertenece a otro experimento ajeno, no se asume."""
     mock_ml_client = MagicMock()
     mock_job = MagicMock()
     mock_job.name = "wheat_cheese_4swj34tkjn"
     mock_job.status = "Completed"
     mock_job.properties = {
-        # Child run perteneciente a un experimento completamente ajeno
-        "best_child_run_id": "otro_experimento_completamente_distinto_99"
+        "best_child_run_id": "experimento_ajeno_99"
     }
-    mock_job.tags = {}
+    # Sin best_model en parent
     mock_job.outputs = {}
     mock_ml_client.jobs.get.return_value = mock_job
 
     winner_id, output_name, metadata = resolve_winner_model(mock_ml_client, mock_job)
 
-    assert winner_id is None, "Debe rechazar un modelo que no coincida con el experimento actual"
-    assert "inconsistencia de procedencia" in metadata.get("ambiguity_reason", "").lower()
+    assert winner_id is None, "Debe rechazar un child run que no coincida con el experimento actual"
+    assert "no corresponde" in metadata.get("ambiguity_reason", "").lower()
