@@ -1,0 +1,11 @@
+# ==============================================================================
+# EcoMix IA — Dependencias de Desarrollo, Testing y CI
+# ==============================================================================
+
+# Framework de Pruebas Automatizadas
+pytest>=8.0.0
+pytest-cov>=4.1.0
+
+# Utilidades de Entorno y Mocks de Pruebas
+anyio>=4.0.0
+Faker>=20.0.0

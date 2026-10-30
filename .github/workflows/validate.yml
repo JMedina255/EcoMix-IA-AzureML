@@ -34,14 +34,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
       - name: Syntax check (py_compile)
         run: |
           python -m py_compile src/prepare_data.py src/evaluate_model.py scripts/doctor.py scripts/sync_state.py
 
+      # NOTA DE ARQUITECTURA:
+      # Esta suite de CI ejecuta validaciones generales de código, contratos del Azure ML SDK,
+      # consistencia documental y lógica del sistema sin requerir credenciales ni modelos de pago.
+      # Las pruebas de deserialización del binario AutoML (VotingEnsemble) se ejecutan en un
+      # runtime especializado con Python 3.10 (Fase 4.4 / Fase 5), manteniéndose desacopladas del CI general.
       - name: Run automated test suite (pytest)
         run: |
-          pytest tests/ -v
+          python -m pytest tests/ -v
 
       - name: Verify data reproducibility & partitions integrity
         run: |
