@@ -72,7 +72,7 @@
       "name": "Evaluacion Independiente del Modelo",
       "status": "pending",
       "script": "src/evaluate_model.py --evaluate",
-      "evidence": "Fase 4.4-A verificada: firma del modelo (8 variables) y prueba controlada de carga. Fase 4.4-B (calculo de metricas sobre test set) pendiente"
+      "evidence": "Fase 4.4-A verificada: firma del modelo (8 variables) y prueba controlada de carga. Evaluador MLflow implementado (src/evaluate_model.py). Job declarativo Azure ML preparado (config/azure_eval_job.yml). Carga local no viable en Windows por dependencias de Azure AutoML (azureml-training-tabular). Fase 4.4-B (ejecucion de evaluacion y reporte de metricas reales) pendiente de despacho autorizado en Azure ML."
     },
     "fase_4_5": {
       "name": "Generacion de Reportes y Trazabilidad",
@@ -116,15 +116,16 @@
     }
   ],
   "verified_tests": {
-    "total_tests": 49,
+    "total_tests": 61,
     "suite": "pytest",
     "test_files": [
+      "tests/test_azure_eval_job.py",
+      "tests/test_doctor.py",
       "tests/test_evaluation_control.py",
       "tests/test_inspect_and_download.py",
-      "tests/test_sync_state.py",
-      "tests/test_doctor.py",
+      "tests/test_model_loading.py",
       "tests/test_model_runtime.py",
-      "tests/test_model_loading.py"
+      "tests/test_sync_state.py"
     ],
     "status": "passing"
   }

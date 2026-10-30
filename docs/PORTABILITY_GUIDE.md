@@ -175,19 +175,33 @@ Diseñado para equipos compartidos de universidad donde:
 
 ---
 
-### Escenario C — Evaluación Remota o Runtime Especializado en Azure ML
+### Escenario C — Evaluación Remota en Azure ML (Command Job Reproducible)
 
-Recomendado cuando el equipo local (por ejemplo, con Python 3.13) no cuenta con el intérprete exacto para deserializar el modelo `VotingEnsemble` de AutoML.
+Recomendado cuando el equipo local (por ejemplo, en Windows con Python 3.13) no cuenta con el runtime de deserialización especializada de Azure AutoML (`azureml.training.tabular`).
 
 1. **Especificación Exacta del Modelo Ganador:**
    * **Python:** 3.10.19
    * **Scikit-learn:** 1.5.1
    * **MLflow:** 2.15.1
-   * **Imagen Curada de Referencia:** `mcr.microsoft.com/azureml/curated/ai-ml-automl:41`
-2. **Ejecución en Compute Instance de Azure ML (Recomendada en laboratorios):**
-   Dado que en un laboratorio universitario típicamente no hay Docker disponible, la alternativa directa y oficial es ejecutar la evaluación en una Compute Instance o Job de Azure ML Workspace (`cpu-cluster-ecomix`), donde el entorno ya cuenta con las versiones binarias exactas.
-3. **Uso de Docker Local (Opcional, solo si el anfitrión cuenta con Docker):**
-   Si la máquina personal dispone de Docker y privilegios suficientes:
+   * **Imagen Curada Oficial:** `mcr.microsoft.com/azureml/curated/ai-ml-automl:41`
+2. **Especificación Declarativa del Job (`config/azure_eval_job.yml`):**
+   El job de evaluación independiente está preparado con límites estrictos de cómputo:
+   * **Cómputo:** `cpu-cluster-ecomix` (instancia única).
+   * **Tiempo límite:** 30 minutos (ejecución real estimada: ~2 a 4 minutos).
+   * **Costo estimado:** Menor a $0.02 USD (~0.08 S/.) consumido de los créditos de Azure.
+   * **Entradas:** Activo de modelo `azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1` y dataset `concrete_test.csv` (206 muestras, SHA-256: `79bdf9613e8515d09baca797e1de4c6de2d6836437584702cbc9c1e78f68c6be`).
+   * **Salidas:** Directorio `reports/` con `evaluation_wheat_cheese_4swj34tkjn.json` y el gráfico de correlación.
+3. **Validación Previa sin Consumo de Cómputo:**
+   ```bash
+   python scripts/prepare_azure_eval_job.py --check
+   ```
+4. **Comando de Despacho en Azure ML:**
+   *(Requiere autorización explícita y por escrito del usuario antes de ejecutarse)*:
+   ```bash
+   az ml job create -f config/azure_eval_job.yml
+   ```
+5. **Uso de Docker Local (Opcional, solo en máquinas con Docker activo):**
+   Si la máquina dispone de Docker:
    ```bash
    docker run -it --rm -v ${PWD}:/workspace -w /workspace mcr.microsoft.com/azureml/curated/ai-ml-automl:41 python src/evaluate_model.py --evaluate
    ```
@@ -201,9 +215,13 @@ Recomendado cuando el equipo local (por ejemplo, con Python 3.13) no cuenta con 
 | **Inicialización** | `scripts/bootstrap.ps1` | Detecta entorno, crea `.venv`, instala dependencias | Solo con `-Install` |
 | **Diagnóstico** | `scripts/doctor.py` | Audita 4 sub-entornos (Dev, Azure, Eval, Infer) | No |
 | **Sincronización** | `scripts/sync_state.py` | Valida consistencia y renderiza `PROJECT_STATE.md` | No |
-| **Pruebas** | `python -m pytest tests/ -v` | Suite automatizada de pruebas y calidad | No |
+| **Pruebas** | `python -m pytest tests/ -v` | Suite automatizada de pruebas y calidad (61 tests) | No |
 | **Descarga Modelo** | `src/evaluate_model.py --download` | Descarga selectiva del Model Asset ganador | Sí (Azure ML) |
 | **Inspección** | `src/evaluate_model.py --inspect` | Consulta telemetría del experimento sin descargar | Sí (Azure ML) |
+| **Evaluador Local/Nube** | `src/evaluate_model.py --evaluate` | Evalúa modelos MLflow/joblib contra test set | No (local) / Sí (Azure) |
+| **Verificación Carga** | `scripts/verify_model_load.py` | Separa validación de firma de deserialización | No |
+| **Job Azure ML** | `config/azure_eval_job.yml` | Especificación de Command Job en la nube | Sí (al despachar) |
+| **Validador de Job** | `scripts/prepare_azure_eval_job.py` | Valida estáticamente el YAML del Command Job | No |
 
 ---
 

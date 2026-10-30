@@ -298,24 +298,39 @@ def render_markdown_state(status_data: Dict[str, Any], root_dir: Path = PROJECT_
         "",
         f"- **Suite de Pruebas:** `{test_suite} tests/ -v`",
         f"- **Total de Pruebas:** {total_tests} pruebas automatizadas pasando al 100%.",
-        "- **Archivos de Prueba:**",
-        "  - `tests/test_evaluation_control.py` (6 pruebas: validación de dataset, nulos, tipado, solapamiento, métricas robustas, ejecución end-to-end con dummy model).",
-        "  - `tests/test_inspect_and_download.py` (16 pruebas: normalizadores de estado y outputs, Casos A-D de AutoML, seguridad `all=False`, manejo de errores del SDK, verificación de archivos en disco, preferencia de Model Asset y validación de procedencia).",
+        "- **Archivos de Prueba:**"
+    ])
+    for tf in test_files:
+        lines.append(f"  - `{tf}`")
+
+    lines.extend([
         "",
         "---",
         "",
-        "## 6. Distinción Entre Hechos Comprobados y Decisiones Pendientes",
+        "## 6. Distinción Entre Hechos Comprobados y Plan de Ejecución",
         "",
-        "### Hechos Comprobados",
-        "1. El split de datos está congelado en 824 registros para entrenamiento y 206 para prueba (`concrete_test.csv`).",
-        f"2. El job `{job_id}` produjo un modelo `{winner_algo}` con NRMSE de `{metric_val}`.",
-        f"3. El activo de modelo `{model_asset_name}:{model_asset_ver}` se descarga selectiva e íntegramente mediante `ml_client.models.download`.",
-        f"4. El pipeline local cuenta con {total_tests} pruebas automatizadas unitarias y de integración simulada sin dependencia de credenciales en CI.",
+        "### Hechos Comprobados y Pasos Completados",
+        "1. **Partición de Datos:** Congelada deterministicamente en 824 registros para entrenamiento y 206 para prueba (`concrete_test.csv`, SHA-256: `79bdf9613e8515d09baca797e1de4c6de2d6836437584702cbc9c1e78f68c6be`).",
+        f"2. **Entrenamiento AutoML:** El job `{job_id}` produjo un modelo ganador `{winner_algo}` con NRMSE de `{metric_val}`.",
+        f"3. **Inspección y Descarga del Artefacto (Completadas):** El activo `{model_asset_name}:{model_asset_ver}` se descarga selectivamente mediante `ml_client.models.download` ({model_size:,} bytes).",
+        "4. **Verificación de Firma y Metadatos (Completada):** Se validó que el artefacto declare estrictamente las 8 variables predictoras sin requerir deserialización (`scripts/verify_model_load.py --signature-only`).",
+        "5. **Carga Local (No Viable en Windows):** La deserialización local en el intérprete Windows/Python 3.13 no es viable debido a dependencias binarias especializadas de Azure AutoML (`azureml.training.tabular.models.voting_ensemble.PreFittedSoftVotingRegressor`).",
+        "6. **Evaluador MLflow Independiente (Completado):** `src/evaluate_model.py` preparado para cargar paquetes MLflow, auditar solapamientos objetivamente sin atribuciones normativas ASTM y segmentar métricas a 7d y 28d.",
+        f"7. **Job Declarativo Azure ML (Completado):** Especificación reproducible `config/azure_eval_job.yml` validada para ejecutar `evaluate_model.py` bajo el runtime oficial `{curated_img}` en el clúster existente `cpu-cluster-ecomix`.",
+        f"8. **Suite Automatizada de Pruebas:** {total_tests} pruebas automatizadas pasando al 100% en entornos multiplataforma (Windows y Ubuntu con Python 3.10 y 3.13).",
         "",
-        "### Decisiones Técnicas Pendientes",
-        f"1. **Entorno de Ejecución de la Evaluación (Fase 4.4):** Determinar si se ejecuta localmente sobre Python 3.13 con validación estricta de compatibilidad o si se monta un contenedor Docker basado en `{curated_img.split('/')[-1]}`.",
-        "2. **Estructura del Dossier de Métricas (Fase 4.5):** Consolidación de curvas de paridad y residuales en formato PNG/JSON para la sustentación del Reto Yura.",
-        "3. **Fórmulas de Sostenibilidad en Inferencia (Fase 5):** Parametrización de factores de emisión de $\\text{CO}_2$ y costos de insumos según especificación de FD02/FD03.",
+        "### Plan de Ejecución y Tareas Pendientes",
+        "1. **Ejecución de la Evaluación Independiente (Fase 4.4-B):**",
+        "   - **Estado:** No ejecutada. Planificada y validada estáticamente.",
+        "   - **Comando de Despacho en Azure ML:**",
+        "     ```bash",
+        "     az ml job create -f config/azure_eval_job.yml",
+        "     ```",
+        "     *(Importante: Este comando NUNCA debe ejecutarse automáticamente por agentes IDE; requiere confirmación explícita y por escrito del usuario).* ",
+        "   - **Costos Estimados de Cómputo:**",
+        "     El clúster existente `cpu-cluster-ecomix` escala dinámicamente a 1 nodo CPU (`STANDARD_DS11_V2`, ~$0.14 USD/hora). La evaluación toma ~2 a 4 minutos (costo acotado inferior a $0.02 USD / 0.08 S/.).",
+        "2. **Consolidación de Métricas y Trazabilidad (Fase 4.5):** Generación y registro de `reports/evaluation_wheat_cheese_4swj34tkjn.json` y el gráfico de correlación real vs predicho una vez obtenidos los resultados reales de la nube.",
+        "3. **Módulo de Inferencia EcoMix (Fase 5):** Implementación de fórmulas de sostenibilidad (reemplazo clínker por puzolana/escoria, huella de carbono y costo) sin alterar el runtime del predictor ML.",
         ""
     ])
 
