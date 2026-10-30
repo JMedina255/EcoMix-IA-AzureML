@@ -20,7 +20,7 @@ from scripts.prepare_azure_eval_job import (
     EXPECTED_COMPUTE_CLUSTER,
     EXPECTED_ENVIRONMENT_IMAGE,
     EXPECTED_INSTANCE_COUNT,
-    EXPECTED_TIMEOUT_MINUTES,
+    EXPECTED_TIMEOUT_SECONDS,
     EXPECTED_WINNER_MODEL_ASSET,
     TEST_DATA_PATH,
     compute_file_sha256,
@@ -45,9 +45,37 @@ def test_azure_eval_job_matches_specification_contract():
     assert metadata["compute"] == EXPECTED_COMPUTE_CLUSTER
     assert metadata["environment_image"] == EXPECTED_ENVIRONMENT_IMAGE
     assert metadata["model_asset"] == EXPECTED_WINNER_MODEL_ASSET
-    assert metadata["timeout_minutes"] == EXPECTED_TIMEOUT_MINUTES
+    assert metadata["timeout_seconds"] == EXPECTED_TIMEOUT_SECONDS
     assert metadata["instance_count"] == EXPECTED_INSTANCE_COUNT
     assert "reports_dir" in metadata["outputs"]
+
+
+def test_azure_eval_job_rejects_timeout_minutes_legacy_field(tmp_path):
+    """Comprueba que se rechaza explícitamente el campo no oficial timeout_minutes."""
+    with open(CONFIG_JOB_PATH, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    # Introducir el campo no oficial
+    data["limits"] = {"timeout_minutes": 30}
+    bad_yaml = tmp_path / "bad_timeout_job.yml"
+    with open(bad_yaml, "w", encoding="utf-8") as f:
+        yaml.dump(data, f)
+
+    is_valid, metadata, errors = validate_eval_job_specification(
+        job_yaml_path=bad_yaml,
+        test_data_path=TEST_DATA_PATH
+    )
+    assert is_valid is False
+    assert any("timeout_minutes" in err for err in errors)
+
+
+def test_azure_eval_job_validates_against_official_sdk_schema():
+    """Valida la especificación contra el esquema oficial de Azure ML SDK v2."""
+    from azure.ai.ml import load_job
+    job = load_job(source=str(CONFIG_JOB_PATH))
+    assert job.type == "command"
+    assert job.compute in ("cpu-cluster-ecomix", "azureml:cpu-cluster-ecomix")
+    assert job.limits.timeout == 1800
 
 
 def test_test_data_sha256_matches_job_tags():

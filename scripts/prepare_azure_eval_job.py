@@ -26,7 +26,7 @@ TRAIN_DATA_PATH = BASE_DIR / "data" / "processed" / "concrete_train.csv"
 EXPECTED_WINNER_MODEL_ASSET = "azureml:azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1"
 EXPECTED_ENVIRONMENT_IMAGE = "mcr.microsoft.com/azureml/curated/ai-ml-automl:41"
 EXPECTED_COMPUTE_CLUSTER = "azureml:cpu-cluster-ecomix"
-EXPECTED_TIMEOUT_MINUTES = 30
+EXPECTED_TIMEOUT_SECONDS = 1800
 EXPECTED_INSTANCE_COUNT = 1
 
 
@@ -131,12 +131,22 @@ def validate_eval_job_specification(
         errors.append(f"El comando no invoca 'evaluate_model.py --evaluate': '{command}'.")
     metadata["command"] = command
 
-    # 7. Limits & Resources
+    # 7. Limits & Resources (Esquema oficial: limits.timeout en segundos)
     limits = job_spec.get("limits", {})
-    timeout = limits.get("timeout_minutes") if isinstance(limits, dict) else None
-    if timeout != EXPECTED_TIMEOUT_MINUTES:
-        errors.append(f"Límite de tiempo inesperado: {timeout} min (se esperaba {EXPECTED_TIMEOUT_MINUTES} min).")
-    metadata["timeout_minutes"] = timeout
+    if not isinstance(limits, dict):
+        errors.append("La sección 'limits' debe ser un diccionario.")
+    else:
+        if "timeout_minutes" in limits:
+            errors.append(
+                "Campo obsoleto/no oficial 'timeout_minutes' detectado en limits. "
+                "El esquema oficial de Azure ML Command Job requiere 'limits.timeout' en segundos (ej. 1800)."
+            )
+        timeout_seconds = limits.get("timeout")
+        if timeout_seconds != EXPECTED_TIMEOUT_SECONDS:
+            errors.append(
+                f"Límite de tiempo inesperado: {timeout_seconds} segundos (se esperaba {EXPECTED_TIMEOUT_SECONDS} s / 30 min)."
+            )
+        metadata["timeout_seconds"] = timeout_seconds
 
     resources = job_spec.get("resources", {})
     instances = resources.get("instance_count") if isinstance(resources, dict) else None
@@ -149,6 +159,19 @@ def validate_eval_job_specification(
     if "reports_dir" not in outputs:
         errors.append("La sección 'outputs' debe definir 'reports_dir'.")
     metadata["outputs"] = list(outputs.keys())
+
+    # 9. Validación con el esquema oficial de Azure ML SDK (si la biblioteca está disponible)
+    try:
+        from azure.ai.ml import load_job
+        try:
+            sdk_job = load_job(source=str(job_yaml_path))
+            metadata["sdk_schema_validated"] = True
+            metadata["sdk_job_type"] = type(sdk_job).__name__
+        except Exception as sdk_err:
+            metadata["sdk_schema_validated"] = False
+            errors.append(f"Fallo en validación de esquema oficial Azure ML SDK: {sdk_err}")
+    except ImportError:
+        metadata["sdk_schema_validated"] = None
 
     is_valid = len(errors) == 0
     metadata["valid"] = is_valid
@@ -171,9 +194,13 @@ def print_validation_report(is_valid: bool, metadata: Dict[str, Any], errors: Li
     print(f" SHA-256 Test Set:     {metadata.get('actual_test_sha256')}")
     if metadata.get("actual_train_sha256"):
         print(f" SHA-256 Train Set:    {metadata.get('actual_train_sha256')}")
-    print(f" Timeout Máximo:       {metadata.get('timeout_minutes')} minutos")
+    timeout_s = metadata.get("timeout_seconds")
+    timeout_str = f"{timeout_s} s ({timeout_s // 60} min)" if timeout_s else "No definido"
+    print(f" Timeout Máximo:       {timeout_str}")
     print(f" Instancias Cómputo:   {metadata.get('instance_count')} (CPU única)")
     print(f" Outputs Definidos:    {', '.join(metadata.get('outputs', []))}")
+    if metadata.get("sdk_schema_validated") is True:
+        print(f" Validación SDK:       Compatible con esquema oficial Azure ML CommandJob")
     print("-" * 68)
     print(" Comando Configurado:")
     print(f"   {metadata.get('command')}")
