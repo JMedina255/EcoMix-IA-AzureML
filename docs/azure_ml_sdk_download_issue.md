@@ -83,25 +83,33 @@ Se comprobó en un entorno virtual aislado con `azure-ai-ml==1.35.1` y la versi�
 
 Para salvaguardar la robustez del pipeline sin violar restricciones de seguridad ni alterar paquetes del sistema:
 
-1. **Manejo de Excepciones Específico:**
-   En `src/evaluate_model.py`, la llamada a `ml_client.jobs.download()` se encuentra encapsulada para detectar de manera precisa `TypeError` asociado a `BatchGetResolvedUrisDto` y discrepancias de parámetros.
+1. **Descarga Directa mediante Model Asset (Ruta Principal):**
+   En `src/evaluate_model.py`, la función `download_winner_model` resuelve dinámicamente el Model Asset registrado automáticamente por AutoML para el child run ganador (`resolve_model_asset`). Al estar verificado y validar la procedencia, ejecuta prioritariamente `ml_client.models.download(name, version, download_path)`, eludiendo de forma completa el defecto interno de resolución de outputs del dataplane.
 
-2. **Diagnóstico Claro y Preservación del Error:**
-   La aplicación no enmascara la falla; emite un diagnóstico en consola con las causas del SDK y relanza `RuntimeError` encadenado (`raise ... from e`) para trazabilidad técnica.
+2. **Manejo de Excepciones Específico en `jobs.download`:**
+   Si se especifica un `--output-name` manual o si no existe Model Asset y se recurre a `ml_client.jobs.download()`, la llamada está protegida para capturar de manera precisa `TypeError` asociado a `BatchGetResolvedUrisDto`.
 
-3. **Garantía de Descarga Selectiva:**
+3. **Diagnóstico Claro y Exclusión de Azure CLI:**
+   La aplicación no enmascara la falla; emite un diagnóstico en consola explicando el defecto interno del SDK. Se advierte explícitamente que Azure CLI (extensión `ml` 2.45.2) presenta la misma falla interna por compartir la base de código, por lo que no se recomienda como alternativa. En su lugar, se indican la descarga directa por Model Asset y la descarga manual desde Azure ML Studio.
+
+4. **Garantía de Descarga Selectiva:**
    Bajo ninguna circunstancia se recurre a `all=True`, evitando descargas masivas e innecesarias de gigabytes en disco.
 
-4. **Verificación Estricta de Existencia en Disco:**
-   La descarga solo se declara exitosa si se valida fehacientemente la existencia y tamaño no nulo de los artefactos (`model.pkl` o carpeta `MLmodel`) en el directorio de destino.
+5. **Verificación Estricta de Existencia en Disco:**
+   La descarga solo se declara exitosa (`verify_downloaded_model_files`) si se valida fehacientemente la existencia y tamaño no nulo de los artefactos (`model.pkl` o carpeta `MLmodel`) en el directorio de destino.
 
 ---
 
-## 6. Alternativas Comprobadas para Obtención del Modelo
+## 6. Procedimiento Comprobado para Obtención y Evaluación del Modelo
 
-Cuando el comando `ml_client.jobs.download(output_name="best_model")` sea bloqueado por este bug del SDK:
+### Procedimiento Principal: Descarga Automatizada Integrada
+Con la incorporación de la descarga por Model Asset, el comando estándar de descarga opera de manera directa y selectiva:
+```bash
+python src/evaluate_model.py --download --job-name wheat_cheese_4swj34tkjn
+```
+El script extrae dinámicamente el activo de modelo ganador (`azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1`), descarga los artefactos mediante `ml_client.models.download` y verifica la integridad de `model.pkl`.
 
-### Alternativa A: Descarga vía Azure ML Studio (Recomendada)
+### Procedimiento Alternativo: Descarga vía Azure ML Studio
 1. Ingrese al portal [ml.azure.com](https://ml.azure.com).
 2. Navegue a **Trabajos (Jobs)** -> seleccione el experimento `wheat_cheese_4swj34tkjn`.
 3. Vaya a la pestaña **Resultados y registros (Outputs + logs)**.
@@ -109,23 +117,8 @@ Cuando el comando `ml_client.jobs.download(output_name="best_model")` sea bloque
 5. Deposite los archivos en la carpeta del proyecto:
    `models/wheat_cheese_4swj34tkjn/best_model/`
 
-### Alternativa B: Descarga directa del Model Asset (Python SDK)
-Dado que Azure ML AutoML registra automáticamente un activo de modelo para la iteración ganadora (`wheat_cheese_4swj34tkjn_11`):
-```python
-from azure.ai.ml import MLClient
-from src.evaluate_model import get_ml_client
-
-client = get_ml_client()
-client.models.download(
-    name="azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674",
-    version="1",
-    download_path="models/wheat_cheese_4swj34tkjn"
-)
-```
-*Comprobado con éxito: descarga completa de `model.pkl` (670,849 bytes), `MLmodel`, `conda.yaml` y dependencias.*
-
-### Ejecución de Evaluación con Modelo Descargado
-Una vez obtenido el modelo por cualquiera de las alternativas:
+### Ejecución de Evaluación Local
+Una vez obtenido el modelo:
 ```bash
-python src/evaluate_model.py --evaluate --model-path "models/wheat_cheese_4swj34tkjn/best_model/model.pkl"
+python src/evaluate_model.py --evaluate --model-path "models/wheat_cheese_4swj34tkjn"
 ```

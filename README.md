@@ -111,17 +111,18 @@ ML EcomixIA/
      ```bash
      python src/evaluate_model.py --inspect --job-name wheat_cheese_4swj34tkjn
      ```
-   - **Descarga selectiva del modelo ganador:**
+   - **Descarga selectiva del modelo ganador (prioriza Model Asset verificado):**
      ```bash
      python src/evaluate_model.py --download --job-name wheat_cheese_4swj34tkjn
      ```
+     *El script resuelve dinámicamente el Model Asset registrado (`ml_client.models.download`), eludiendo el defecto interno de resolución de outputs del SDK (`BatchGetResolvedUrisDto`) y garantizando descarga controlada sin `all=True`.*
    - **Evaluación independiente contra el dataset de prueba (206 muestras):**
      ```bash
      python src/evaluate_model.py --evaluate --model-path models/wheat_cheese_4swj34tkjn/best_model/model.pkl
      ```
 
    > [!NOTE]
-   > Para más detalles sobre la resolución de errores del SDK (`BatchGetResolvedUrisDto`) y alternativas documentadas de descarga, consulte [`docs/azure_ml_sdk_download_issue.md`](docs/azure_ml_sdk_download_issue.md).
+   > Para más detalles sobre el análisis del error interno del SDK (`BatchGetResolvedUrisDto`), la exclusión de Azure CLI por compartir la misma falla y las alternativas comprobadas de descarga, consulte [`docs/azure_ml_sdk_download_issue.md`](docs/azure_ml_sdk_download_issue.md).
 
 ---
 

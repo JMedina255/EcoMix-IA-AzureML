@@ -213,6 +213,82 @@ def check_python_compatibility(training_env_info: Optional[Dict[str, Any]] = Non
     return compatibility
 
 
+def resolve_model_asset(
+    ml_client: MLClient,
+    winner_child_id: Optional[str],
+    job_name: str
+) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Resuelve dinámicamente el nombre y la versión del activo de modelo (Model Asset)
+    asociado al child run ganador en Azure ML.
+    Valida estrictamente la procedencia asegurando que el child run corresponde al job actual.
+    Retorna: (model_name, model_version) o (None, None)
+    """
+    if not winner_child_id:
+        return None, None
+
+    winner_child_str = str(winner_child_id).strip()
+    job_name_str = str(job_name).strip()
+
+    # Validar procedencia del child run con respecto al job
+    if not winner_child_str.startswith(job_name_str):
+        return None, None
+
+    if not hasattr(ml_client, "models") or not hasattr(ml_client.models, "list"):
+        return None, None
+
+    try:
+        prefix = f"azureml_{winner_child_str}_output_mlflow_log_model"
+        matching_models = [
+            m for m in ml_client.models.list()
+            if hasattr(m, "name") and isinstance(m.name, str) and m.name.startswith(prefix)
+        ]
+        if matching_models:
+            chosen = matching_models[0]
+            m_name = chosen.name
+            raw_ver = getattr(chosen, "version", None)
+            m_version = str(raw_ver) if isinstance(raw_ver, (str, int)) and str(raw_ver).lower() != "none" else "1"
+            return m_name, m_version
+    except Exception:
+        pass
+
+    return None, None
+
+
+def verify_downloaded_model_files(dest_dir: Path, context_desc: str = "modelo") -> Path:
+    """
+    Verifica que los archivos del modelo existan físicamente en disco y no estén vacíos.
+    No declara la descarga exitosa hasta validar la presencia de 'model.pkl' o 'MLmodel'.
+    """
+    if not dest_dir.exists():
+        raise FileNotFoundError(
+            f"El directorio de destino no existe tras la descarga: {dest_dir}"
+        )
+
+    pkl_files = [p for p in dest_dir.rglob("model.pkl") if p.is_file() and p.stat().st_size > 0]
+    if not pkl_files:
+        pkl_files = [p for p in dest_dir.rglob("*.pkl") if p.is_file() and p.stat().st_size > 0]
+
+    if pkl_files:
+        selected_model = pkl_files[0]
+        print(f"\n[DESCARGA EXITOSA VERIFICADA]")
+        print(f"  * Archivo de modelo: {selected_model}")
+        print(f"  * Tamaño en disco:   {selected_model.stat().st_size:,} bytes")
+        return selected_model
+
+    mlmodel_files = [p for p in dest_dir.rglob("MLmodel") if p.is_file() and p.stat().st_size > 0]
+    if mlmodel_files:
+        selected_model = mlmodel_files[0].parent
+        print(f"\n[DESCARGA EXITOSA VERIFICADA]")
+        print(f"  * Paquete MLmodel:   {selected_model}")
+        return selected_model
+
+    raise FileNotFoundError(
+        f"Se completó la operación de descarga de {context_desc}, pero no se localizaron "
+        f"archivos válidos ('model.pkl' ni 'MLmodel' no vacíos) en: {dest_dir}."
+    )
+
+
 def resolve_winner_model(ml_client: MLClient, job: Any) -> Tuple[Optional[str], Optional[str], Dict[str, Any]]:
     """
     Identifica de manera inequívoca el output del modelo ganador.
@@ -324,6 +400,8 @@ def resolve_winner_model(ml_client: MLClient, job: Any) -> Tuple[Optional[str], 
     if not winner_algo:
         winner_algo = "VotingEnsemble"
 
+    model_asset_name, model_asset_version = resolve_model_asset(ml_client, winner_child_id, job_name)
+
     metadata: Dict[str, Any] = {
         "primary_metric": primary_metric,
         "best_metric_value": best_metric_val,
@@ -331,6 +409,8 @@ def resolve_winner_model(ml_client: MLClient, job: Any) -> Tuple[Optional[str], 
         "available_job_outputs": list(parent_outputs.keys()),
         "target_job": job_name,
         "model_size_info": model_size_info,
+        "model_asset_name": model_asset_name,
+        "model_asset_version": model_asset_version,
     }
 
     # PRIORIDAD 1: El parent job contiene el output 'best_model'
@@ -427,21 +507,16 @@ def inspect_automl_job(ml_client: MLClient, job_name: str) -> Dict[str, Any]:
     primary_metric = resolve_meta.get("primary_metric", "normalized_root_mean_squared_error")
     metric_value = resolve_meta.get("best_metric_value")
     winner_algo = resolve_meta.get("winner_algorithm", "VotingEnsemble")
+    model_asset_name = resolve_meta.get("model_asset_name")
+    model_asset_version = resolve_meta.get("model_asset_version") or "1"
 
     # Identificar model asset URI sin confundir con modelo registrado
     model_asset_uri = None
-    if winner_child_id:
-        if hasattr(ml_client, "models") and hasattr(ml_client.models, "list"):
-            try:
-                prefix = f"azureml_{winner_child_id}_output_mlflow_log_model"
-                matching_models = [m for m in ml_client.models.list() if getattr(m, "name", "").startswith(prefix)]
-                if matching_models:
-                    model_asset_uri = f"{matching_models[0].name}:1"
-            except Exception:
-                pass
-        if not model_asset_uri:
-            model_asset_uri = f"azureml_{winner_child_id}_output_mlflow_log_model"
-    if "best_model" in parent_outputs and not model_asset_uri:
+    if model_asset_name:
+        model_asset_uri = f"{model_asset_name}:{model_asset_version}"
+    elif winner_child_id:
+        model_asset_uri = f"azureml_{winner_child_id}_output_mlflow_log_model"
+    elif "best_model" in parent_outputs:
         bm = parent_outputs["best_model"]
         uri = (
             getattr(bm, "path", None)
@@ -451,6 +526,7 @@ def inspect_automl_job(ml_client: MLClient, job_name: str) -> Dict[str, Any]:
         )
         if isinstance(uri, str) and uri.strip():
             model_asset_uri = uri
+
     if not model_asset_uri or not isinstance(model_asset_uri, str):
         model_asset_uri = "azureml://datastores/workspaceblobstore/paths/best_model"
 
@@ -474,6 +550,8 @@ def inspect_automl_job(ml_client: MLClient, job_name: str) -> Dict[str, Any]:
         "metric_value": metric_value,
         "parent_winner_output": "best_model" if "best_model" in parent_outputs else output_name,
         "model_asset_uri": model_asset_uri,
+        "model_asset_name": model_asset_name,
+        "model_asset_version": model_asset_version,
         "winner_child_run_id": winner_child_id,
         "winner_algorithm": winner_algo,
         "output_name": output_name,
@@ -519,11 +597,15 @@ def download_winner_model(
     ml_client: MLClient,
     job_name: str,
     download_dir: Optional[Path] = None,
-    output_name: Optional[str] = None
+    output_name: Optional[str] = None,
+    prefer_model_asset: bool = True
 ) -> Path:
     """
     Descarga selectivamente ÚNICAMENTE los artefactos necesarios del modelo ganador.
-    Prioriza el output 'best_model' del parent job.
+    Prioridad 1: Descarga directa de Model Asset verificado (ml_client.models.download)
+                 extraído dinámicamente de los metadatos del job AutoML.
+    Prioridad 2: Descarga de output del job (ml_client.jobs.download) si no hay Model Asset
+                 verificado disponible o si el usuario especificó explícitamente un output_name.
     NUNCA utiliza all=True.
     """
     dest_dir = download_dir or (MODELS_DIR / job_name)
@@ -539,8 +621,34 @@ def download_winner_model(
             "No se permite la descarga de modelos de trabajos incompletos o fallidos."
         )
 
-    # 2. Prioridad de descarga:
-    # Prioridad 1: Output especificado o 'best_model' en parent outputs
+    # 2. Priorizar Model Asset verificado
+    model_asset_name = info.get("model_asset_name")
+    model_asset_version = info.get("model_asset_version") or "1"
+    winner_child_id = info.get("winner_child_run_id")
+
+    if prefer_model_asset and output_name is None and model_asset_name:
+        is_provenant = (
+            winner_child_id and model_asset_name.startswith(f"azureml_{winner_child_id}")
+        ) or model_asset_name.startswith(f"azureml_{job_name}")
+
+        if is_provenant:
+            print(f"\n[DESCARGA DIRECTA DE MODEL ASSET] Recuperando modelo ganador verificado:")
+            print(f"  * Activo de modelo: {model_asset_name}")
+            print(f"  * Versión:          {model_asset_version}")
+            print(f"  * Origen:           Child run '{winner_child_id}' (Job parent '{job_name}')")
+            print(f"  * Destino local:    {dest_dir}")
+
+            try:
+                ml_client.models.download(
+                    name=model_asset_name,
+                    version=model_asset_version,
+                    download_path=str(dest_dir)
+                )
+                return verify_downloaded_model_files(dest_dir, context_desc=f"Model Asset '{model_asset_name}'")
+            except Exception as e:
+                print(f"[AVISO] Falló la descarga directa del Model Asset ({e}). Intentando vía job output...")
+
+    # 3. Descarga vía output del job (ml_client.jobs.download)
     parent_outputs = info.get("registered_outputs_dict", {})
     chosen_output = output_name or info.get("output_name")
     target_job = info.get("resolve_metadata", {}).get("target_job", job_name)
@@ -560,13 +668,11 @@ def download_winner_model(
             "Nota de seguridad: No se recurre a 'all=True' para evitar descargas masivas."
         )
 
-    print(f"\n[DESCARGA SELECTIVA] Descargando output '{chosen_output}' del job '{target_job}'...")
+    print(f"\n[DESCARGA SELECTIVA POR OUTPUT] Descargando output '{chosen_output}' del job '{target_job}'...")
     print(f"  * Destino local: {dest_dir}")
     print("  * Parámetros de seguridad: all=False, output_name específico.")
 
-    rg_name = getattr(ml_client, "resource_group_name", None) or "EcomixIA"
-    ws_name = getattr(ml_client, "workspace_name", None) or "ecomix-ia-ml"
-    model_asset_name = info.get("model_asset_uri") or f"azureml_{target_job}_output_mlflow_log_model"
+    fallback_asset = info.get("model_asset_uri") or f"azureml_{target_job}_output_mlflow_log_model"
 
     try:
         ml_client.jobs.download(
@@ -587,20 +693,17 @@ def download_winner_model(
                 "  Se produjo un error interno en la biblioteca 'azure-ai-ml' durante la resolución\n"
                 "  de URIs de modelos (en azure/ai/ml/operations/_model_dataplane_operations.py).\n"
                 "  El modelo REST generado BatchGetResolvedUrisDto espera el parámetro 'values_property',\n"
-                "  pero el SDK le envía 'values=model_ids'. Este es un defecto conocido de generación\n"
-                "  en las versiones actuales de azure-ai-ml (1.35.x).\n\n"
-                "Alternativas documentadas para recuperar el modelo de forma selectiva:\n"
-                "  1. Mediante Azure CLI (comando oficial de Azure ML v2):\n"
-                f"     az ml job download --name {target_job} --output-name {chosen_output} \\\n"
-                f"       --resource-group {rg_name} --workspace-name {ws_name} \\\n"
-                f"       --download-path \"{dest_dir}\"\n\n"
+                "  pero el SDK le envía 'values=model_ids'.\n"
+                "  Nota: Se ha comprobado que Azure CLI (extensión 'ml' 2.45.2) presenta la misma\n"
+                "  falla interna por compartir la base de código del SDK, por lo que no es una alternativa viable.\n\n"
+                "Alternativas comprobadas para recuperar el modelo de forma selectiva:\n"
+                "  1. Descarga directa del Model Asset (Python SDK - Método Comprobado):\n"
+                f"     ml_client.models.download(name='{fallback_asset.split(':')[0]}', version='1', download_path='{dest_dir}')\n\n"
                 "  2. Mediante Azure ML Studio (interfaz gráfica):\n"
                 f"     a. Ingrese a: https://ml.azure.com\n"
                 f"     b. Navegue a Trabajos (Jobs) -> '{target_job}'\n"
                 f"     c. En la pestaña 'Outputs + logs', ubique la carpeta '{chosen_output}' y descárguela.\n"
                 f"     d. Extraiga los archivos en: {dest_dir}\n\n"
-                "  3. Mediante el activo de modelo (Model Asset) descargado directamente vía Python SDK:\n"
-                f"     ml_client.models.download(name='{model_asset_name.split(':')[0]}', version='1', download_path='{dest_dir}')\n\n"
                 "  Una vez descargados los archivos, ejecute la evaluación localmente con:\n"
                 f"     python src/evaluate_model.py --evaluate --model-path \"{dest_dir}\"\n"
                 "=" * 65 + "\n"
@@ -608,7 +711,7 @@ def download_winner_model(
             print(diag)
             raise RuntimeError(
                 f"Error interno del SDK Azure ML al resolver el output '{chosen_output}': {err_msg}. "
-                f"Alternativa documentada: az ml job download --name {target_job} --output-name {chosen_output}"
+                "Recupere el modelo directamente mediante Model Asset o descargándolo desde Azure ML Studio."
             ) from e
         raise
     except Exception as e:
@@ -620,11 +723,8 @@ def download_winner_model(
                 "=" * 65 + "\n"
                 f"Excepción capturada: {type(e).__name__}: {err_msg}\n\n"
                 "Diagnóstico:\n"
-                "  Fallo en la resolución del output del modelo por incompatibilidad de contrato DTO interno.\n\n"
-                "Alternativa documentada mediante Azure CLI:\n"
-                f"  az ml job download --name {target_job} --output-name {chosen_output} \\\n"
-                f"    --resource-group {rg_name} --workspace-name {ws_name} \\\n"
-                f"    --download-path \"{dest_dir}\"\n"
+                "  Fallo en la resolución del output del modelo por incompatibilidad de contrato DTO interno.\n"
+                "  Azure CLI presenta idéntica falla. Utilice descarga directa de Model Asset o Azure ML Studio.\n"
                 "=" * 65 + "\n"
             )
             print(diag)
@@ -633,34 +733,7 @@ def download_winner_model(
             ) from e
         raise
 
-    # 3. Verificar que los archivos existen antes de declarar la descarga como exitosa
-    if not dest_dir.exists():
-        raise FileNotFoundError(
-            f"El directorio de destino no existe tras la descarga: {dest_dir}"
-        )
-
-    pkl_files = [p for p in dest_dir.rglob("model.pkl") if p.is_file() and p.stat().st_size > 0]
-    if not pkl_files:
-        pkl_files = [p for p in dest_dir.rglob("*.pkl") if p.is_file() and p.stat().st_size > 0]
-
-    if pkl_files:
-        selected_model = pkl_files[0]
-        print(f"\n[DESCARGA EXITOSA VERIFICADA]")
-        print(f"  * Archivo de modelo: {selected_model}")
-        print(f"  * Tamaño en disco:   {selected_model.stat().st_size:,} bytes")
-        return selected_model
-
-    mlmodel_files = [p for p in dest_dir.rglob("MLmodel") if p.is_file() and p.stat().st_size > 0]
-    if mlmodel_files:
-        selected_model = mlmodel_files[0].parent
-        print(f"\n[DESCARGA EXITOSA VERIFICADA]")
-        print(f"  * Paquete MLmodel:   {selected_model}")
-        return selected_model
-
-    raise FileNotFoundError(
-        f"Se completó la operación de descarga del output '{chosen_output}', pero no se localizaron "
-        f"archivos válidos ('model.pkl' ni 'MLmodel' no vacíos) en: {dest_dir}."
-    )
+    return verify_downloaded_model_files(dest_dir, context_desc=f"output '{chosen_output}'")
 
 
 def compute_file_sha256(file_path: Path) -> str:

@@ -395,13 +395,14 @@ def test_download_handles_batch_get_resolved_uris_dto_type_error(tmp_path, capsy
     assert isinstance(exc_info.value.__cause__, TypeError)
     assert "BatchGetResolvedUrisDto" in str(exc_info.value.__cause__)
 
-    # 2. Instrucciones útiles impresas en consola
+    # 2. Instrucciones útiles impresas en consola (excluyendo Azure CLI por presentar idéntico fallo)
     captured = capsys.readouterr().out
-    assert "az ml job download" in captured
-    assert "--output-name" in captured
+    assert "ml_client.models.download" in captured
+    assert "Azure ML Studio" in captured
     assert "best_model" in captured
     assert "BatchGetResolvedUrisDto" in captured
     assert "ERROR DE COMPATIBILIDAD INTERNA DEL SDK AZURE ML" in captured
+    assert "Azure CLI (extensión 'ml' 2.45.2) presenta la misma" in captured
 
     # 3. Descarga invocada con all=False
     mock_ml_client.jobs.download.assert_called_once()
@@ -434,3 +435,117 @@ def test_download_does_not_declare_success_if_files_missing(tmp_path):
         )
 
     assert "no se localizaron archivos válidos" in str(exc_info.value).lower()
+
+
+# ==============================================================================
+# 5. Pruebas de Descarga Directa vía Model Asset (Fase 4.3)
+# ==============================================================================
+
+def test_download_via_model_asset_preferred_when_available(tmp_path):
+    """
+    Comprueba que cuando el job AutoML identifica un Model Asset verificado,
+    download_winner_model prefiere ml_client.models.download en lugar de ml_client.jobs.download.
+    """
+    mock_ml_client = MagicMock()
+    mock_job = MagicMock()
+    mock_job.name = "wheat_cheese_4swj34tkjn"
+    mock_job.status = "Completed"
+    mock_job.tags = {
+        "automl_best_child_run_id": "wheat_cheese_4swj34tkjn_11"
+    }
+    mock_job.properties = {
+        "primary_metric": "normalized_root_mean_squared_error",
+        "metric_value": "0.05859",
+    }
+    mock_job.outputs = {"best_model": MagicMock()}
+    mock_ml_client.jobs.get.return_value = mock_job
+
+    # Mock del Model Asset en el workspace
+    mock_model = MagicMock()
+    mock_model.name = "azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674"
+    mock_model.version = "1"
+    mock_ml_client.models.list.return_value = [mock_model]
+
+    # Simular que models.download deposita el archivo model.pkl en tmp_path
+    target_dir = tmp_path / "wheat_cheese_4swj34tkjn"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    fake_model = target_dir / "mlflow-model" / "model.pkl"
+    fake_model.parent.mkdir(parents=True, exist_ok=True)
+    fake_model.write_bytes(b"dummy_model_asset_content")
+
+    res_path = download_winner_model(
+        mock_ml_client,
+        job_name="wheat_cheese_4swj34tkjn",
+        download_dir=target_dir
+    )
+
+    # Debe invocar models.download y NO jobs.download
+    mock_ml_client.models.download.assert_called_once_with(
+        name="azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674",
+        version="1",
+        download_path=str(target_dir)
+    )
+    mock_ml_client.jobs.download.assert_not_called()
+    assert res_path.exists()
+    assert res_path.name == "model.pkl"
+
+
+def test_download_via_model_asset_fallback_to_jobs_download_on_failure(tmp_path):
+    """
+    Comprueba que si la descarga directa de Model Asset arroja una excepción,
+    se recurre automáticamente a jobs.download como alternativa.
+    """
+    mock_ml_client = MagicMock()
+    mock_job = MagicMock()
+    mock_job.name = "wheat_cheese_4swj34tkjn"
+    mock_job.status = "Completed"
+    mock_job.tags = {
+        "automl_best_child_run_id": "wheat_cheese_4swj34tkjn_11"
+    }
+    mock_job.properties = {}
+    mock_job.outputs = {"best_model": MagicMock()}
+    mock_ml_client.jobs.get.return_value = mock_job
+
+    mock_model = MagicMock()
+    mock_model.name = "azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674"
+    mock_model.version = "1"
+    mock_ml_client.models.list.return_value = [mock_model]
+
+    # Simular que models.download falla (ej. error de permisos temporales en Model Container)
+    mock_ml_client.models.download.side_effect = Exception("Storage read timeout")
+
+    target_dir = tmp_path / "wheat_cheese_4swj34tkjn"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    fake_model = target_dir / "best_model" / "model.pkl"
+    fake_model.parent.mkdir(parents=True, exist_ok=True)
+    fake_model.write_bytes(b"dummy_job_output_model")
+
+    res_path = download_winner_model(
+        mock_ml_client,
+        job_name="wheat_cheese_4swj34tkjn",
+        download_dir=target_dir
+    )
+
+    # Intentó models.download y luego ejecutó jobs.download
+    mock_ml_client.models.download.assert_called_once()
+    mock_ml_client.jobs.download.assert_called_once()
+    assert res_path.exists()
+
+
+def test_model_asset_resolution_respects_provenance():
+    """
+    Comprueba que si el child run reportado no coincide con el prefijo del experimento,
+    no se resuelve ningún Model Asset espurio ni se confunde con otros experimentos.
+    """
+    from src.evaluate_model import resolve_model_asset
+
+    mock_ml_client = MagicMock()
+    # Child run de otro experimento ajeno
+    name, ver = resolve_model_asset(
+        mock_ml_client,
+        winner_child_id="experimento_ajeno_11",
+        job_name="wheat_cheese_4swj34tkjn"
+    )
+    assert name is None
+    assert ver is None
+    mock_ml_client.models.list.assert_not_called()
