@@ -24,10 +24,52 @@ TEST_DATA_PATH = BASE_DIR / "data" / "processed" / "concrete_test.csv"
 TRAIN_DATA_PATH = BASE_DIR / "data" / "processed" / "concrete_train.csv"
 
 EXPECTED_WINNER_MODEL_ASSET = "azureml:azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1"
+EXPECTED_WINNER_CHILD_RUN = "wheat_cheese_4swj34tkjn_11"
 EXPECTED_ENVIRONMENT_IMAGE = "mcr.microsoft.com/azureml/curated/ai-ml-automl:41"
 EXPECTED_COMPUTE_CLUSTER = "azureml:cpu-cluster-ecomix"
 EXPECTED_TIMEOUT_SECONDS = 1800
 EXPECTED_INSTANCE_COUNT = 1
+
+
+def check_code_snapshot_security(repo_root: Path) -> Tuple[bool, List[str]]:
+    """
+    Verifica que el empaquetado del código ('code: ../') no incluya accidentalmente
+    secretos (config.json, .env), modelos binarios locales (models/*.pkl) ni entornos virtuales (.venv).
+    Comprueba la existencia y suficiencia de exclusiones en '.amlignore' y '.gitignore'.
+    """
+    issues: List[str] = []
+    amlignore_path = repo_root / ".amlignore"
+    if not amlignore_path.exists():
+        issues.append(
+            "Falta el archivo '.amlignore' en la raíz del proyecto. "
+            "Es indispensable para evitar la carga accidental de secretos y modelos locales en Azure ML."
+        )
+        return False, issues
+
+    try:
+        amlignore_content = amlignore_path.read_text(encoding="utf-8")
+    except Exception as e:
+        issues.append(f"Error al leer '.amlignore': {e}")
+        return False, issues
+
+    required_exclusions = ["config.json", ".env", "models/", ".venv", "*.pkl"]
+    for req in required_exclusions:
+        if req not in amlignore_content:
+            issues.append(
+                f"La regla de exclusión obligatoria '{req}' no se encuentra definida en '.amlignore'."
+            )
+
+    gitignore_path = repo_root / ".gitignore"
+    if gitignore_path.exists():
+        try:
+            gi_content = gitignore_path.read_text(encoding="utf-8")
+            for req in ["config.json", "models/", ".venv", "*.pkl"]:
+                if req not in gi_content:
+                    issues.append(f"Regla obligatoria '{req}' ausente en '.gitignore'.")
+        except Exception:
+            pass
+
+    return len(issues) == 0, issues
 
 
 def compute_file_sha256(file_path: Path, normalize_newlines: bool = True) -> str:
@@ -76,6 +118,14 @@ def validate_eval_job_specification(
     if not isinstance(job_spec, dict):
         return False, {}, ["El contenido del archivo YAML debe ser un diccionario raíz."]
 
+    # 0. Verificación de seguridad del empaquetado de código (code: ../)
+    code_val = job_spec.get("code", "")
+    code_dir = (job_yaml_path.parent / code_val).resolve()
+    sec_ok, sec_issues = check_code_snapshot_security(code_dir)
+    metadata["code_snapshot_security_valid"] = sec_ok
+    if not sec_ok:
+        errors.extend(sec_issues)
+
     # 1. Tipo de trabajo
     job_type = job_spec.get("type")
     if job_type != "command":
@@ -106,6 +156,12 @@ def validate_eval_job_specification(
             errors.append(f"Activo de modelo inesperado: '{model_path}' (se esperaba '{EXPECTED_WINNER_MODEL_ASSET}').")
         metadata["model_asset"] = model_path
 
+        # Tag de procedencia del ganador
+        tags = job_spec.get("tags", {})
+        winner_tag = tags.get("winner_child_run")
+        if winner_tag != EXPECTED_WINNER_CHILD_RUN:
+            errors.append(f"Tag 'winner_child_run' inesperado: '{winner_tag}' (se esperaba '{EXPECTED_WINNER_CHILD_RUN}').")
+
         # Input de test
         test_input = inputs.get("test_data", {})
         metadata["test_data_input"] = test_input
@@ -121,9 +177,12 @@ def validate_eval_job_specification(
     else:
         errors.append(f"No existe el archivo de prueba local en: {test_data_path}")
 
-    if train_data_path and train_data_path.exists():
-        actual_train_sha = compute_file_sha256(train_data_path)
-        metadata["actual_train_sha256"] = actual_train_sha
+    if train_data_path is not None:
+        if train_data_path.exists():
+            actual_train_sha = compute_file_sha256(train_data_path)
+            metadata["actual_train_sha256"] = actual_train_sha
+        else:
+            errors.append(f"No existe el archivo de entrenamiento local en: {train_data_path} para auditoría de solapamiento.")
 
     # 6. Command
     command = job_spec.get("command", "")

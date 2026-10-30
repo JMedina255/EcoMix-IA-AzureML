@@ -279,3 +279,56 @@ def test_evaluate_model_incompatible_runtime_error_reporting(tmp_path):
         )
     assert "azureml" in str(exc_info.value).lower()
 
+
+def test_validate_test_dataset_incomplete_status_when_train_missing(tmp_path):
+    """Comprueba que si falta el dataset de entrenamiento, se registra un estado explícito de auditoría incompleta."""
+    test_csv = tmp_path / "test.csv"
+    create_sample_csv(test_csv, n_rows=5)
+
+    _, report = validate_test_dataset(test_path=test_csv, train_path=None)
+    assert report["overlaps"]["status"] == "INCOMPLETE_MISSING_TRAIN_DATA"
+    assert report["is_train_overlap_audit_complete"] is False
+    assert any("INCOMPLETO" in n for n in report["overlaps"]["notes"])
+
+
+def test_evaluate_model_rejects_altered_test_dataset_under_strict_checksums(tmp_path):
+    """Comprueba que se rechaza la evaluación si el hash del dataset de prueba no coincide con el canónico."""
+    test_csv = tmp_path / "altered_test.csv"
+    create_sample_csv(test_csv, n_rows=10)
+    model_path = tmp_path / "dummy.pkl"
+    reg = DummyRegressor(strategy="mean")
+    reg.fit([[1] * 8], [30.0])
+    joblib.dump(reg, model_path)
+
+    with pytest.raises(ValueError) as exc_info:
+        evaluate_model(
+            model_path=model_path,
+            job_name="checksum_test_job",
+            test_path=test_csv,
+            reports_dir=tmp_path / "reports",
+            strict_checksums=True
+        )
+    assert "fallo de integridad criptográfica en test set" in str(exc_info.value).lower()
+
+
+def test_evaluate_model_rejects_altered_model_binary_under_strict_checksums(tmp_path):
+    """Comprueba que bajo modo estricto se rechaza un binario de modelo con SHA-256 no canónico."""
+    from src.evaluate_model import TEST_DATA_PATH
+    if not TEST_DATA_PATH.exists():
+        pytest.skip("Dataset de prueba real no disponible")
+
+    model_path = tmp_path / "unmatched_model.pkl"
+    reg = DummyRegressor(strategy="mean")
+    reg.fit([[1] * 8], [30.0])
+    joblib.dump(reg, model_path)
+
+    with pytest.raises(ValueError) as exc_info:
+        evaluate_model(
+            model_path=model_path,
+            job_name="wheat_cheese_4swj34tkjn",  # default job name activa strict mode
+            test_path=TEST_DATA_PATH,
+            reports_dir=tmp_path / "reports",
+            strict_checksums=True
+        )
+    assert "fallo de integridad criptográfica en modelo" in str(exc_info.value).lower()
+

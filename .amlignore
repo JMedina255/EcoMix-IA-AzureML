@@ -1,0 +1,48 @@
+# =================================================================
+# Azure ML Exclusion Rules (.amlignore) — EcoMix IA
+# =================================================================
+# Previene la inclusión de secretos, credenciales, entornos virtuales,
+# modelos binarios locales y cachés en los snapshots de código enviados a Azure ML.
+
+# 1. Credenciales y Secretos Locales
+config.json
+.env
+*.key
+*.pem
+*.token
+
+# 2. Entornos Virtuales y Dependencias Locales
+.venv/
+venv/
+env/
+ENV/
+
+# 3. Modelos Binarios Locales y Artefactos Descargados
+# (En Azure ML se montan o descargan vía Model Assets independientes)
+models/
+*.pkl
+*.joblib
+*.onnx
+
+# 4. Control de Versiones y Cachés de Pruebas
+.git/
+.github/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+
+# 5. Salidas y Reportes Locales
+reports/
+*.png
+*.pdf
+
+# 6. Datos Locales (montados vía Inputs en Command Job)
+data/
+dataset/
+
+# 7. Documentación y Archivos de IDE
+docs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

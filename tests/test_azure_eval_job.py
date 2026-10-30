@@ -22,7 +22,9 @@ from scripts.prepare_azure_eval_job import (
     EXPECTED_INSTANCE_COUNT,
     EXPECTED_TIMEOUT_SECONDS,
     EXPECTED_WINNER_MODEL_ASSET,
+    EXPECTED_WINNER_CHILD_RUN,
     TEST_DATA_PATH,
+    check_code_snapshot_security,
     compute_file_sha256,
     validate_eval_job_specification,
 )
@@ -114,3 +116,32 @@ def test_cli_execution_with_json_flag():
     payload = json.loads(proc.stdout)
     assert payload["valid"] is True
     assert payload["metadata"]["actual_test_sha256"] is not None
+
+
+def test_code_snapshot_security_verifies_amlignore_and_exclusions(tmp_path):
+    """Comprueba que la verificación de empaquetado exige .amlignore y exclusión de secretos."""
+    # 1. En el repositorio real debe ser completamente válido
+    is_valid, issues = check_code_snapshot_security(BASE_DIR)
+    assert is_valid is True, f"Fallo de seguridad en el snapshot del repo: {issues}"
+
+    # 2. En directorio sin .amlignore debe fallar
+    mock_dir = tmp_path / "mock_project"
+    mock_dir.mkdir()
+    bad_valid, bad_issues = check_code_snapshot_security(mock_dir)
+    assert bad_valid is False
+    assert any(".amlignore" in iss for iss in bad_issues)
+
+    # 3. En directorio con .amlignore incompleto (falta config.json) debe fallar
+    (mock_dir / ".amlignore").write_text("models/\n*.pkl\n.venv\n", encoding="utf-8")
+    inc_valid, inc_issues = check_code_snapshot_security(mock_dir)
+    assert inc_valid is False
+    assert any("config.json" in iss for iss in inc_issues)
+
+
+def test_azure_eval_job_specifies_winner_child_run():
+    """Comprueba que la especificación referencia explícitamente al ganador wheat_cheese_4swj34tkjn_11."""
+    with open(CONFIG_JOB_PATH, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    tags = data.get("tags", {})
+    assert tags.get("winner_child_run") == EXPECTED_WINNER_CHILD_RUN

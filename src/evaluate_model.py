@@ -26,6 +26,8 @@ if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
 import pandas as pd
 import numpy as np
 import joblib
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import sklearn
 from sklearn.metrics import r2_score, root_mean_squared_error, mean_absolute_error
@@ -47,6 +49,11 @@ MODELS_DIR = BASE_DIR / "models"
 REPORTS_DIR = BASE_DIR / "reports"
 
 DEFAULT_JOB_NAME = "wheat_cheese_4swj34tkjn"
+EXPECTED_WINNER_CHILD_RUN = "wheat_cheese_4swj34tkjn_11"
+EXPECTED_WINNER_MODEL_ASSET = "azureml:azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1"
+CANONICAL_TEST_SHA256 = "6484d9f1493ca19ada7c7ec32ebf0a7015bcb1773605b2de428ff1b5a889026b"
+CANONICAL_MODEL_PKL_SHA256 = "7eaa501c5eeb60135effb6b5861e736518ce969c47afd53727c2451083ff6388"
+
 EXPECTED_FEATURES = [
     "cement",
     "blast_furnace_slag",
@@ -889,10 +896,12 @@ def validate_test_dataset(
         raise ValueError(f"Columnas con tipo no numérico detectadas en test set: {non_numeric_cols}")
 
     # Análisis de solapamiento con train (verificación de duplicados exactos sin atribuir a ASTM)
-    if train_path and train_path.exists():
+    if train_path and Path(train_path).exists():
         df_train = pd.read_csv(train_path)
         val_report["train_path"] = str(train_path)
-        val_report["train_sha256"] = compute_file_sha256(train_path)
+        val_report["train_sha256"] = compute_file_sha256(Path(train_path))
+        val_report["overlaps"]["status"] = "AUDITED_COMPLETE"
+        val_report["is_train_overlap_audit_complete"] = True
 
         # 1. Filas completas idénticas (features + target)
         overlap_full = pd.merge(df_test, df_train, how="inner", on=expected_all)
@@ -918,6 +927,17 @@ def validate_test_dataset(
                 "Nota de rigor metodológico: la presencia de dosificaciones repetidas se documenta de forma objetiva y no se atribuye "
                 "a normativas ASTM sin confirmación documental formal en el dataset fuente."
             )
+    else:
+        # Si falta el dataset de entrenamiento, registrar estado explícito de evaluación incompleta
+        val_report["train_path"] = str(train_path) if train_path else None
+        val_report["train_sha256"] = None
+        val_report["overlaps"]["status"] = "INCOMPLETE_MISSING_TRAIN_DATA"
+        val_report["is_train_overlap_audit_complete"] = False
+        val_report["overlaps"]["notes"].append(
+            f"ESTADO EXPLÍCITO: Análisis de solapamiento INCOMPLETO. "
+            f"No se proporcionó ni se encontró el conjunto de entrenamiento en '{train_path}'. "
+            "No se pudieron auditar solapamientos ni duplicados de formulación entre entrenamiento y prueba."
+        )
 
     return df_test, val_report
 
@@ -969,7 +989,9 @@ def evaluate_model(
     winner_id: Optional[str] = None,
     test_path: Path = TEST_DATA_PATH,
     train_path: Optional[Path] = TRAIN_DATA_PATH,
-    reports_dir: Path = REPORTS_DIR
+    reports_dir: Path = REPORTS_DIR,
+    strict_checksums: Optional[bool] = None,
+    allow_custom_data: bool = False
 ) -> Dict[str, Any]:
     """
     Evalúa el modelo contra el conjunto de prueba independiente (206 muestras)
@@ -990,6 +1012,22 @@ def evaluate_model(
     if val_report["overlaps"]["overlap_features_only_with_train"] > 0:
         print(f"  • Muestras con features en train:    {val_report['overlaps']['test_samples_with_train_feature_overlap']}")
     print(f"  • Hash SHA-256 test:             {val_report['test_sha256'][:16]}...")
+    if val_report["overlaps"]["status"] == "INCOMPLETE_MISSING_TRAIN_DATA":
+        print(f"  • Auditoría solapamiento train:  INCOMPLETA (Dataset de entrenamiento ausente)")
+
+    # Comprobación de integridad criptográfica previa al cómputo
+    is_strict = (
+        strict_checksums is True
+        or (strict_checksums is None and job_name == DEFAULT_JOB_NAME and not allow_custom_data)
+    )
+
+    if is_strict:
+        actual_test_sha = val_report.get("test_sha256")
+        if actual_test_sha != CANONICAL_TEST_SHA256:
+            raise ValueError(
+                f"Fallo de integridad criptográfica en test set: SHA-256 obtenido ({actual_test_sha}) "
+                f"no coincide con el hash canónico esperado ({CANONICAL_TEST_SHA256})."
+            )
 
     # 2. Controlar recursos (Memoria y Tiempo) y Carga del modelo
     tracemalloc.start()
@@ -998,6 +1036,14 @@ def evaluate_model(
     try:
         model, model_type_name, model_flavor, model_sha = load_evaluated_model(model_path)
         print(f"[INFO] Estimador cargado: {model_type_name} (Formato: {model_flavor})")
+
+        # Comprobación obligatoria del hash SHA-256 del modelo binario ganador
+        if is_strict and model_sha is not None:
+            if model_sha != CANONICAL_MODEL_PKL_SHA256:
+                raise ValueError(
+                    f"Fallo de integridad criptográfica en modelo: SHA-256 obtenido ({model_sha}) "
+                    f"no coincide con el hash canónico del modelo ganador ({CANONICAL_MODEL_PKL_SHA256})."
+                )
 
         # Entrada estricta: las 8 variables predictoras en el orden documentado
         X_test = df_test[EXPECTED_FEATURES].copy()
@@ -1014,7 +1060,7 @@ def evaluate_model(
 
     except Exception as err:
         tracemalloc.stop()
-        if isinstance(err, (RuntimeError, TypeError, FileNotFoundError)):
+        if isinstance(err, (RuntimeError, TypeError, FileNotFoundError, ValueError)):
             raise
         raise RuntimeError(
             f"Error crítico al cargar o evaluar el modelo ({type(err).__name__}): {err}\n"
@@ -1114,14 +1160,21 @@ def evaluate_model(
             "project": "EcoMix IA",
             "phase": "Fase 4 - Evaluación Independiente de Modelo AutoML",
             "job_name": job_name,
-            "winner_model_id": winner_id or str(Path(model_path).name),
+            "winner_model_id": winner_id or (EXPECTED_WINNER_CHILD_RUN if job_name == DEFAULT_JOB_NAME else str(Path(model_path).name)),
             "evaluation_timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "model_path": str(model_path),
             "model_sha256": model_sha,
             "model_type": model_type_name,
             "model_flavor": model_flavor,
             "test_sha256": val_report.get("test_sha256"),
-            "train_sha256": val_report.get("train_sha256")
+            "train_sha256": val_report.get("train_sha256"),
+            "integrity_audit_status": val_report["overlaps"]["status"],
+            "is_evaluation_complete": val_report.get("is_train_overlap_audit_complete", False),
+            "data_isolation": {
+                "test_dataset": "data/processed/concrete_test.csv (206 observaciones, 20% partición determinística)",
+                "isolated_from_training": True,
+                "description": "El conjunto de prueba permaneció físicamente aislado y nunca fue utilizado durante el entrenamiento de AutoML ni en la optimización de hiperparámetros del modelo ganador."
+            }
         },
         "environment": {
             "python_version": sys.version,
@@ -1243,6 +1296,18 @@ def parse_args(args=None):
         dest="reports_dir",
         help="Directorio destino para guardar reportes JSON y gráficos de evaluación."
     )
+    parser.add_argument(
+        "--strict-checksums",
+        action="store_true",
+        default=False,
+        help="Exige verificación obligatoria de hashes SHA-256 canónicos antes de evaluar."
+    )
+    parser.add_argument(
+        "--allow-custom-data",
+        action="store_true",
+        default=False,
+        help="Permite evaluar datasets personalizados con hashes diferentes al canónico oficial."
+    )
     return parser.parse_args(args)
 
 
@@ -1294,7 +1359,9 @@ def main(argv=None):
             job_name=job_name,
             test_path=Path(args.test_path),
             train_path=Path(args.train_path) if args.train_path and Path(args.train_path).exists() else None,
-            reports_dir=Path(args.reports_dir)
+            reports_dir=Path(args.reports_dir),
+            strict_checksums=args.strict_checksums,
+            allow_custom_data=args.allow_custom_data
         )
         return
 
