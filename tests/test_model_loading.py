@@ -26,6 +26,7 @@ from scripts.verify_model_load import (
     create_dummy_sample,
     find_mlmodel_dir,
     load_and_verify_model,
+    run_verification_pipeline,
     verify_model_signature,
 )
 
@@ -139,3 +140,58 @@ def test_cli_execution_with_check_flag(simulated_mlflow_model: Path):
         check=False
     )
     assert proc.returncode == 0
+
+
+def test_signature_only_mode_does_not_attempt_loading(simulated_mlflow_model: Path):
+    report = run_verification_pipeline(
+        simulated_mlflow_model,
+        check_signature=True,
+        attempt_load=False,
+        test_predict=False
+    )
+    assert report["signature_verified"] is True
+    assert report["load_attempted"] is False
+    assert report["load_successful"] is False
+    assert report["status"] == "signature_verified_only"
+
+
+def test_cli_signature_only_flag(simulated_mlflow_model: Path):
+    proc = subprocess.run(
+        [sys.executable, "scripts/verify_model_load.py", "--signature-only", "--model-dir", str(simulated_mlflow_model)],
+        cwd=str(BASE_DIR),
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False
+    )
+    assert proc.returncode == 0
+
+
+def test_cli_require_load_flag_success_on_compatible_model(simulated_mlflow_model: Path):
+    proc = subprocess.run(
+        [sys.executable, "scripts/verify_model_load.py", "--require-load", "--model-dir", str(simulated_mlflow_model)],
+        cwd=str(BASE_DIR),
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False
+    )
+    assert proc.returncode == 0
+
+
+def test_cli_require_load_flag_failure_on_incompatible_runtime():
+    real_dir = find_mlmodel_dir(DEFAULT_MODELS_DIR)
+    if not real_dir:
+        pytest.skip("Modelo real no descargado en models/")
+
+    proc = subprocess.run(
+        [sys.executable, "scripts/verify_model_load.py", "--require-load", "--model-dir", str(real_dir)],
+        cwd=str(BASE_DIR),
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False
+    )
+    # En Python 3.13 sin azureml-training-tabular, la carga debe fallar con código 2
+    assert proc.returncode == 2
+

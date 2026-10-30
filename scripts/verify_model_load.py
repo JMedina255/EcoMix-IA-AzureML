@@ -3,9 +3,14 @@
 """
 scripts/verify_model_load.py — Prueba Controlada de Carga y Firma del Modelo AutoML.
 
-Carga el artefacto del modelo ganador mediante mlflow.sklearn.load_model() conforme
-al flavor declarado en MLmodel. Verifica la correspondencia de las 8 variables predictoras,
-comprueba el tipo del estimador y la disponibilidad del método predict().
+Separa explícitamente:
+  1. Validación de firma y metadatos (8 variables requeridas).
+  2. Carga y deserialización real mediante mlflow.sklearn.load_model().
+  3. Comprobación del método predict() y ejecución en seco (dry-run).
+
+Proporciona modos diferenciados:
+  --signature-only: valida exclusivamente la firma sin intentar deserializar.
+  --require-load: exige carga real exitosa (falla con código != 0 si falta runtime).
 """
 
 from __future__ import annotations
@@ -59,8 +64,10 @@ def find_mlmodel_dir(base_models_dir: Path = DEFAULT_MODELS_DIR) -> Optional[Pat
 
 def verify_model_signature(model_dir: Path) -> Tuple[bool, List[str], Optional[str]]:
     """
+    1. VALIDACIÓN DE FIRMA Y METADATOS:
     Verifica que el archivo MLmodel contenga la firma de entrada con las 8 variables esperadas.
     Retorna (es_valido, variables_encontradas, mensaje_error).
+    No deserializa ningún binario.
     """
     mlmodel_path = model_dir / "MLmodel"
     if not mlmodel_path.exists():
@@ -84,7 +91,7 @@ def verify_model_signature(model_dir: Path) -> Tuple[bool, List[str], Optional[s
 
         found_features = [inp.get("name") for inp in inputs_list if isinstance(inp, dict)]
 
-        # Comparar con EXPECTED_FEATURES (ignorando orden)
+        # Comparar con EXPECTED_FEATURES (ignorando orden para detección de faltantes)
         missing = [f for f in EXPECTED_FEATURES if f not in found_features]
         extra = [f for f in found_features if f not in EXPECTED_FEATURES]
 
@@ -95,6 +102,33 @@ def verify_model_signature(model_dir: Path) -> Tuple[bool, List[str], Optional[s
         return True, found_features, None
     except Exception as e:
         return False, [], f"Error al parsear MLmodel: {e}"
+
+
+def load_model_artifact(model_dir: Path) -> Tuple[Optional[Any], Optional[str], Optional[str]]:
+    """
+    2. CARGA REAL Y DESERIALIZACIÓN:
+    Intenta deserializar el modelo usando mlflow.sklearn.load_model().
+    Retorna (estimador_cargado, error_string, recomendacion_entorno).
+    """
+    try:
+        loaded_model = mlflow.sklearn.load_model(str(model_dir))
+        return loaded_model, None, None
+    except ModuleNotFoundError as mnf:
+        err = (
+            f"Falta el módulo especializado '{mnf.name}'. "
+            "El artefacto VotingEnsemble de Azure AutoML contiene clases dependientes de "
+            "'azureml.training.tabular' o 'azureml.automl.runtime', las cuales requieren "
+            "Python 3.10 y el runtime especializado de Azure ML."
+        )
+        rec = (
+            "Para deserializar este modelo, utilice la imagen curada oficial "
+            "'mcr.microsoft.com/azureml/curated/ai-ml-automl:41' o ejecute la evaluación en "
+            "Azure ML Workspace (Compute Instance o Job)."
+        )
+        return None, err, rec
+    except Exception as e:
+        err = f"Error al deserializar el modelo ({type(e).__name__}): {e}"
+        return None, err, None
 
 
 def create_dummy_sample() -> pd.DataFrame:
@@ -112,106 +146,135 @@ def create_dummy_sample() -> pd.DataFrame:
     return pd.DataFrame(sample_data, columns=EXPECTED_FEATURES)
 
 
-def load_and_verify_model(
+def verify_model_prediction(
+    estimator: Any,
+    dummy_df: Optional[pd.DataFrame] = None
+) -> Tuple[bool, Optional[float], Optional[str]]:
+    """
+    3. COMPROBACIÓN DEL MÉTODO PREDICT:
+    Verifica que el estimador implemente predict() y responda a una muestra sintética.
+    Retorna (exitoso, valor_predicho, mensaje_error).
+    """
+    if not hasattr(estimator, "predict"):
+        return False, None, f"El objeto cargado ({type(estimator).__name__}) no implementa el método predict()."
+
+    if dummy_df is None:
+        dummy_df = create_dummy_sample()
+
+    try:
+        preds = estimator.predict(dummy_df)
+        if isinstance(preds, (np.ndarray, list, pd.Series)) and len(preds) == 1:
+            return True, float(preds[0]), None
+        return True, None, None
+    except Exception as e:
+        return False, None, f"Fallo al ejecutar predict(): {e}"
+
+
+def run_verification_pipeline(
     model_dir: Path,
-    dry_run_predict: bool = True
+    check_signature: bool = True,
+    attempt_load: bool = True,
+    test_predict: bool = True
 ) -> Dict[str, Any]:
     """
-    Realiza la prueba controlada de carga del modelo mediante mlflow.sklearn.load_model().
+    Ejecuta el pipeline completo o selectivo de verificación.
     """
     report: Dict[str, Any] = {
         "model_dir": str(model_dir),
         "signature_verified": False,
         "features_found": [],
+        "signature_error": None,
+        "load_attempted": attempt_load,
         "load_successful": False,
         "estimator_type": None,
         "has_predict_method": False,
+        "predict_attempted": test_predict if attempt_load else False,
+        "predict_successful": False,
         "dry_run_prediction": None,
         "status": "pending",
         "error": None,
         "environment_recommendation": None
     }
 
-    # 1. Verificación de firma
-    sig_ok, features, sig_err = verify_model_signature(model_dir)
-    report["signature_verified"] = sig_ok
-    report["features_found"] = features
+    # 1. Validación de firma
+    if check_signature:
+        sig_ok, features, sig_err = verify_model_signature(model_dir)
+        report["signature_verified"] = sig_ok
+        report["features_found"] = features
+        report["signature_error"] = sig_err
 
-    if not sig_ok:
-        report["status"] = "error"
-        report["error"] = f"Validación de firma fallida: {sig_err}"
-        return report
-
-    # 2. Carga controlada mediante mlflow.sklearn.load_model
-    try:
-        loaded_model = mlflow.sklearn.load_model(str(model_dir))
-        report["load_successful"] = True
-        report["estimator_type"] = type(loaded_model).__name__
-        report["has_predict_method"] = hasattr(loaded_model, "predict")
-
-        if not report["has_predict_method"]:
-            report["status"] = "error"
-            report["error"] = f"El estimador cargado ({report['estimator_type']}) no implementa predict()."
+        if not sig_ok:
+            report["status"] = "signature_mismatch"
+            report["error"] = f"Validación de firma fallida: {sig_err}"
             return report
 
-        # 3. Dry-run con 1 muestra de prueba para verificar compatibilidad de predict()
-        if dry_run_predict:
-            dummy_df = create_dummy_sample()
-            try:
-                preds = loaded_model.predict(dummy_df)
-                if isinstance(preds, (np.ndarray, list, pd.Series)) and len(preds) == 1:
-                    val = float(preds[0])
-                    report["dry_run_prediction"] = val
-                    report["status"] = "verified"
-                else:
-                    report["status"] = "verified"
-                    report["dry_run_prediction"] = str(preds)
-            except Exception as e:
-                report["status"] = "load_ok_predict_failed"
-                report["error"] = f"Modelo cargó pero predict() falló: {e}"
-        else:
-            report["status"] = "verified"
+    # Si solo se solicitó firma, concluir aquí
+    if not attempt_load:
+        report["status"] = "signature_verified_only"
+        return report
 
-    except ModuleNotFoundError as mnf:
+    # 2. Carga y deserialización
+    estimator, load_err, rec = load_model_artifact(model_dir)
+    if load_err:
         report["load_successful"] = False
-        report["status"] = "blocked_by_missing_dependency"
-        report["error"] = (
-            f"Falta el módulo especializado '{mnf.name}'. "
-            "El artefacto VotingEnsemble de Azure AutoML contiene clases dependientes de "
-            "'azureml.training.tabular' o 'azureml.automl.runtime', las cuales requieren "
-            "Python 3.10 y el runtime especializado de Azure ML."
-        )
-        report["environment_recommendation"] = (
-            "Para deserializar este modelo, utilice la imagen curada oficial "
-            "'mcr.microsoft.com/azureml/curated/ai-ml-automl:41' o ejecute la evaluación en "
-            "Azure ML Workspace (Compute Instance o Job)."
-        )
-    except Exception as e:
-        report["load_successful"] = False
-        report["status"] = "load_failed"
-        report["error"] = f"Error al cargar el modelo: {type(e).__name__}: {e}"
+        report["status"] = "blocked_by_missing_dependency" if rec else "load_failed"
+        report["error"] = load_err
+        report["environment_recommendation"] = rec
+        return report
 
+    report["load_successful"] = True
+    report["estimator_type"] = type(estimator).__name__
+    report["has_predict_method"] = hasattr(estimator, "predict")
+
+    # 3. Comprobación de predict
+    if test_predict:
+        pred_ok, pred_val, pred_err = verify_model_prediction(estimator)
+        report["predict_successful"] = pred_ok
+        report["dry_run_prediction"] = pred_val
+        if not pred_ok:
+            report["status"] = "predict_failed"
+            report["error"] = pred_err
+            return report
+
+    report["status"] = "verified"
     return report
 
 
+def load_and_verify_model(
+    model_dir: Path,
+    dry_run_predict: bool = True
+) -> Dict[str, Any]:
+    """
+    Función de compatibilidad que invoca run_verification_pipeline con attempt_load=True.
+    """
+    return run_verification_pipeline(
+        model_dir=model_dir,
+        check_signature=True,
+        attempt_load=True,
+        test_predict=dry_run_predict
+    )
+
+
 def print_load_report(report: Dict[str, Any]) -> None:
-    """Imprime el resultado de la prueba de carga en consola."""
+    """Imprime el resultado de la prueba en consola."""
     print("=" * 68)
-    print(" ECOMIX IA — PRUEBA CONTROLADA DE CARGA DEL MODELO (Fase 4.4-A)")
+    print(" ECOMIX IA — PRUEBA CONTROLADA DE MODELO (Fase 4.4-A)")
     print("=" * 68)
     print(f" Directorio del Modelo: {report['model_dir']}")
-    print(f" Firma (8 Variables):   {'[CORRECTA]' if report['signature_verified'] else '[FALLO]'}")
+    print(f" Firma (8 Variables):   {'[CORRECTA]' if report['signature_verified'] else ('[NO EVALUADA]' if not report['features_found'] else '[FALLO]')}")
     if report["features_found"]:
         print(f" Variables Detectadas:  {', '.join(report['features_found'])}")
     print("-" * 68)
 
-    if report["load_successful"]:
+    if not report["load_attempted"]:
+        print(f" [OK] MODO: SOLO FIRMA VERIFICADA (Sin deserialización de binarios).")
+    elif report["load_successful"]:
         print(" [OK] CARGA EXITOSA DEL ESTIMADOR")
         print(f" Estimador:             {report['estimator_type']}")
         print(f" Método predict():      {'Disponible' if report['has_predict_method'] else 'No disponible'}")
         if report["dry_run_prediction"] is not None:
-            print(f" Predicción de Prueba:  {report['dry_run_prediction']} MPa (1 muestra sintética)")
-        print(f" Estado:                VERIFICADO ({report['status']})")
+            print(f" Predicción Sintética:  {report['dry_run_prediction']} MPa (1 muestra sintética)")
+        print(f" Estado General:        VERIFICADO ({report['status']})")
     else:
         print(f" [AVISO] ESTADO DE CARGA: {report['status'].upper()}")
         print(f" Detalle:               {report['error']}")
@@ -232,9 +295,19 @@ def main() -> int:
         help="Ruta explícita al directorio que contiene el archivo MLmodel."
     )
     parser.add_argument(
+        "--signature-only",
+        action="store_true",
+        help="Valida únicamente la firma y metadatos sin intentar deserializar el binario."
+    )
+    parser.add_argument(
+        "--require-load",
+        action="store_true",
+        help="Modo estricto: exige que la deserialización y carga real del estimador sea exitosa (código != 0 si falla)."
+    )
+    parser.add_argument(
         "--no-predict",
         action="store_true",
-        help="Solo cargar el modelo sin ejecutar predicción sintética de prueba."
+        help="Cargar el modelo sin ejecutar predicción sintética de prueba."
     )
     parser.add_argument(
         "--json",
@@ -258,18 +331,36 @@ def main() -> int:
         print(f"[ERROR] No se localizó el directorio del modelo en '{DEFAULT_MODELS_DIR}'.", file=sys.stderr)
         return 1
 
-    report = load_and_verify_model(model_dir, dry_run_predict=not args.no_predict)
+    # Determinar qué fases ejecutar
+    attempt_load = not args.signature_only
+    test_predict = attempt_load and not args.no_predict
+
+    report = run_verification_pipeline(
+        model_dir,
+        check_signature=True,
+        attempt_load=attempt_load,
+        test_predict=test_predict
+    )
 
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))
     else:
         print_load_report(report)
 
-    if args.check:
-        # En modo check, la firma DEBE ser correcta
+    # Determinar código de salida
+    if args.require_load:
+        # Exige carga exitosa obligatoriamente
+        if not report["load_successful"]:
+            return 2
+        if test_predict and not report["predict_successful"]:
+            return 3
+        return 0
+
+    if args.signature_only or args.check:
         return 0 if report["signature_verified"] else 1
 
-    return 0
+    # En modo diagnóstico por defecto, retorna 0 si la firma es correcta
+    return 0 if report["signature_verified"] else 1
 
 
 if __name__ == "__main__":
