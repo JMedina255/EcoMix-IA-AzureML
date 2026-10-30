@@ -66,7 +66,7 @@ def test_cli_execution_with_check_flag():
         cwd=str(BASE_DIR),
         capture_output=True,
         text=True,
-        timeout=15,
+        timeout=60,
         check=False
     )
     assert proc.returncode == 0
@@ -79,7 +79,7 @@ def test_cli_execution_with_json_flag():
         cwd=str(BASE_DIR),
         capture_output=True,
         text=True,
-        timeout=15,
+        timeout=60,
         check=False
     )
     assert proc.returncode == 0

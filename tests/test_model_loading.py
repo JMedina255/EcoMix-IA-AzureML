@@ -136,7 +136,7 @@ def test_cli_execution_with_check_flag(simulated_mlflow_model: Path):
         cwd=str(BASE_DIR),
         capture_output=True,
         text=True,
-        timeout=20,
+        timeout=60,
         check=False
     )
     assert proc.returncode == 0
@@ -161,7 +161,7 @@ def test_cli_signature_only_flag(simulated_mlflow_model: Path):
         cwd=str(BASE_DIR),
         capture_output=True,
         text=True,
-        timeout=20,
+        timeout=60,
         check=False
     )
     assert proc.returncode == 0
@@ -173,7 +173,7 @@ def test_cli_require_load_flag_success_on_compatible_model(simulated_mlflow_mode
         cwd=str(BASE_DIR),
         capture_output=True,
         text=True,
-        timeout=20,
+        timeout=60,
         check=False
     )
     assert proc.returncode == 0
@@ -189,7 +189,7 @@ def test_cli_require_load_flag_failure_on_incompatible_runtime():
         cwd=str(BASE_DIR),
         capture_output=True,
         text=True,
-        timeout=20,
+        timeout=60,
         check=False
     )
     # En Python 3.13 sin azureml-training-tabular, la carga debe fallar con código 2

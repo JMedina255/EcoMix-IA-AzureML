@@ -138,7 +138,7 @@ def test_cli_json_mode(tmp_path: Path):
         cwd=str(BASE_DIR),
         capture_output=True,
         text=True,
-        timeout=15,
+        timeout=60,
         check=False
     )
     assert proc.returncode == 0

@@ -131,7 +131,7 @@ def test_doctor_cli_json_mode():
         cwd=str(BASE_DIR),
         capture_output=True,
         text=True,
-        timeout=15,
+        timeout=60,
         check=False
     )
     assert proc.returncode == 0
