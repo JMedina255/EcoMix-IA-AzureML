@@ -1,0 +1,124 @@
+{
+  "project_id": "ecomix-ia-ml",
+  "repository": "JMedina255/EcoMix-IA-AzureML",
+  "default_branch": "main",
+  "current_phase": "4.3",
+  "next_authorized_milestone": "4.4 - Evaluacion controlada e independiente del modelo ganador",
+  "last_validation": {
+    "date": "2026-10-30",
+    "origin": "Azure ML Studio & Workspace Telemetry",
+    "status": "verified"
+  },
+  "azure_experiment": {
+    "job_id": "wheat_cheese_4swj34tkjn",
+    "job_status": "completed",
+    "experiment_name": "ecomix-ia-automl",
+    "compute_target": "cpu-cluster-ecomix",
+    "primary_metric": "normalized_root_mean_squared_error",
+    "metric_value": 0.05859,
+    "winning_algorithm": "VotingEnsemble",
+    "winner_child_run_id": "wheat_cheese_4swj34tkjn_11",
+    "model_asset": {
+      "name": "azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674",
+      "version": "1",
+      "model_size_bytes": 670849
+    },
+    "training_environment": {
+      "curated_image": "mcr.microsoft.com/azureml/curated/ai-ml-automl:41",
+      "python_version": "3.9 / 3.10"
+    }
+  },
+  "phases": {
+    "fase_1": {
+      "name": "Descarga de Datos",
+      "status": "completed",
+      "script": "dataset.py",
+      "evidence": "Dataset UCI ID 165 descargado en data/raw/concrete_data.csv"
+    },
+    "fase_2": {
+      "name": "Preparacion y Validacion",
+      "status": "completed",
+      "script": "src/prepare_data.py",
+      "evidence": "Split deterministico 80/20 (824 train, 206 test), 0 nulos, 25 replicas ASTM"
+    },
+    "fase_3": {
+      "name": "Entrenamiento AutoML en Azure",
+      "status": "completed",
+      "script": "src/train_automl.py",
+      "evidence": "Job wheat_cheese_4swj34tkjn completado, 12 iteraciones, mejor score NRMSE 0.05859"
+    },
+    "fase_4_1": {
+      "name": "Inspeccion Segura del Experimento",
+      "status": "completed",
+      "script": "src/evaluate_model.py --inspect",
+      "evidence": "Normalizacion de estado canonico y trazabilidad desglosada del experimento"
+    },
+    "fase_4_2": {
+      "name": "Control de Recursos y Validacion de Dataset de Prueba",
+      "status": "completed",
+      "script": "src/evaluate_model.py (validaciones)",
+      "evidence": "Validacion de 206 muestras de prueba, deteccion de solapamiento y metricas robustas"
+    },
+    "fase_4_3": {
+      "name": "Descarga Selectiva de Artefactos",
+      "status": "completed",
+      "script": "src/evaluate_model.py --download",
+      "evidence": "Descarga directa asegurada mediante Model Asset verificado sin all=True"
+    },
+    "fase_4_4": {
+      "name": "Evaluacion Independiente del Modelo",
+      "status": "pending",
+      "script": "src/evaluate_model.py --evaluate",
+      "evidence": "Pendiente de ejecucion bajo entorno compatible"
+    },
+    "fase_4_5": {
+      "name": "Generacion de Reportes y Trazabilidad",
+      "status": "pending",
+      "script": "src/evaluate_model.py (reporting)",
+      "evidence": "Pendiente de consolidacion de metricas en reports/"
+    },
+    "fase_5": {
+      "name": "Modulo de Inferencia EcoMix (7d y 28d + Ahorro CO2)",
+      "status": "pending",
+      "script": "src/inference.py",
+      "evidence": "No iniciado"
+    },
+    "fase_6": {
+      "name": "API de Inferencia (FastAPI)",
+      "status": "pending",
+      "script": "src/api.py",
+      "evidence": "No iniciado"
+    },
+    "fase_7": {
+      "name": "Simulador Interactivo (Streamlit UI)",
+      "status": "pending",
+      "script": "app.py",
+      "evidence": "No iniciado"
+    }
+  },
+  "open_issues": [
+    {
+      "id": "ISSUE-SDK-01",
+      "component": "azure-ai-ml 1.35.x / azure-cli ml 2.45.2",
+      "description": "TypeError en BatchGetResolvedUrisDto.__init__() al descargar por output_name='best_model'.",
+      "status": "mitigated",
+      "workaround": "Descarga directa selectiva via Model Asset (ml_client.models.download) implementada en evaluate_model.py."
+    },
+    {
+      "id": "ISSUE-ENV-01",
+      "component": "Python 3.13.5 local vs 3.10 training",
+      "description": "Posible incompatibilidad en deserializacion joblib por diferencia de version de Python entre AzureML AutoML y host local.",
+      "status": "monitored",
+      "recommendation": "Utilizar entorno virtual dedicado con Python 3.10 o contenedor de reproducibilidad documentado."
+    }
+  ],
+  "verified_tests": {
+    "total_tests": 22,
+    "suite": "pytest",
+    "test_files": [
+      "tests/test_evaluation_control.py",
+      "tests/test_inspect_and_download.py"
+    ],
+    "status": "passing"
+  }
+}
