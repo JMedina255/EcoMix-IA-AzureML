@@ -1,0 +1,26 @@
+# ==============================================================================
+# EcoMix IA — Dependencias del Proyecto
+# Python >= 3.10 (Compatible con Python 3.13)
+# ==============================================================================
+
+# --- 1. Manipulación de Datos y Machine Learning ---
+pandas>=2.2.0
+numpy>=1.26.0
+scikit-learn>=1.4.0
+joblib>=1.4.0
+matplotlib>=3.8.0
+
+# --- 2. Azure Machine Learning SDK v2 ---
+azure-ai-ml>=1.20.0
+azure-identity>=1.16.0
+
+# --- 3. Soporte y Runtimes de Modelos AutoML ---
+mlflow>=2.15.0
+lightgbm>=4.3.0
+xgboost>=2.0.0
+
+# --- 4. Servicios Web y Visualización (Fases 6 y 7) ---
+fastapi>=0.110.0
+uvicorn>=0.30.0
+pydantic>=2.7.0
+streamlit>=1.35.0

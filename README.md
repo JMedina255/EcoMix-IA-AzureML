@@ -90,7 +90,7 @@ ML EcomixIA/
 - Suscripción de Azure y Azure Machine Learning Workspace configurado
 - Dependencias:
   ```bash
-  pip install pandas scikit-learn azure-ai-ml azure-identity joblib matplotlib mlflow lightgbm xgboost
+  pip install -r requirements.txt
   ```
 
 ### Flujo de Reproducción
