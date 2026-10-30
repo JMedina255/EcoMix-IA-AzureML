@@ -1,0 +1,56 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+display_name: ecomix-ia-independent-evaluation
+experiment_name: ecomix-ia-evaluation
+description: >
+  Evaluación controlada e independiente del modelo ganador AutoML (VotingEnsemble)
+  sobre el conjunto de 206 observaciones de prueba (concrete_test.csv) en su runtime original.
+
+compute: azureml:cpu-cluster-ecomix
+
+environment:
+  image: mcr.microsoft.com/azureml/curated/ai-ml-automl:41
+
+code: ../
+
+inputs:
+  model_dir:
+    type: mlflow_model
+    path: azureml:azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1
+    description: "Modelo ganador VotingEnsemble generado por el job wheat_cheese_4swj34tkjn_11"
+  test_data:
+    type: uri_file
+    path: ../data/processed/concrete_test.csv
+    description: "Dataset de prueba independiente (206 filas, SHA-256: 79bdf9613e8515d09baca797e1de4c6de2d6836437584702cbc9c1e78f68c6be)"
+  train_data:
+    type: uri_file
+    path: ../data/processed/concrete_train.csv
+    description: "Dataset de entrenamiento para verificación objetiva de solapamiento (SHA-256: 1e5f7f68bf17cbfed2af73659452f02af141250e99c2d19732092508e256aa61)"
+
+outputs:
+  reports_dir:
+    type: uri_folder
+    mode: rw_mount
+    description: "Artefactos de evaluación: evaluation_wheat_cheese_4swj34tkjn.json y gráfico de correlación PNG"
+
+command: >-
+  python src/evaluate_model.py
+  --evaluate
+  --model-path ${{inputs.model_dir}}
+  --test-data ${{inputs.test_data}}
+  --train-data ${{inputs.train_data}}
+  --reports-dir ${{outputs.reports_dir}}
+  --job-name wheat_cheese_4swj34tkjn
+
+limits:
+  timeout_minutes: 30
+
+resources:
+  instance_count: 1
+
+tags:
+  project: EcoMix-IA
+  phase: Fase-4.4-B-Independent-Evaluation
+  winner_child_run: wheat_cheese_4swj34tkjn_11
+  test_sha256: 79bdf9613e8515d09baca797e1de4c6de2d6836437584702cbc9c1e78f68c6be
+  test_samples: "206"
