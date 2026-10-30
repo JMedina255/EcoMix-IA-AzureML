@@ -72,7 +72,7 @@
       "name": "Evaluacion Independiente del Modelo",
       "status": "pending",
       "script": "src/evaluate_model.py --evaluate",
-      "evidence": "Pendiente de ejecucion bajo entorno compatible"
+      "evidence": "Fase 4.4-A verificada: firma del modelo (8 variables) y prueba controlada de carga. Fase 4.4-B (calculo de metricas sobre test set) pendiente"
     },
     "fase_4_5": {
       "name": "Generacion de Reportes y Trazabilidad",
@@ -116,14 +116,15 @@
     }
   ],
   "verified_tests": {
-    "total_tests": 43,
+    "total_tests": 49,
     "suite": "pytest",
     "test_files": [
       "tests/test_evaluation_control.py",
       "tests/test_inspect_and_download.py",
       "tests/test_sync_state.py",
       "tests/test_doctor.py",
-      "tests/test_model_runtime.py"
+      "tests/test_model_runtime.py",
+      "tests/test_model_loading.py"
     ],
     "status": "passing"
   }
