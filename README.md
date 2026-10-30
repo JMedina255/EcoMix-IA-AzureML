@@ -106,10 +106,22 @@ ML EcomixIA/
    ```bash
    python src/train_automl.py
    ```
-4. **Evaluar y descargar el modelo ganador:**
-   ```bash
-   python src/evaluate_model.py
-   ```
+4. **Inspección, descarga y evaluación de modelos (Fase 4):**
+   - **Inspección del experimento (modo por defecto, seguro y sin descargas):**
+     ```bash
+     python src/evaluate_model.py --inspect --job-name wheat_cheese_4swj34tkjn
+     ```
+   - **Descarga selectiva del modelo ganador:**
+     ```bash
+     python src/evaluate_model.py --download --job-name wheat_cheese_4swj34tkjn
+     ```
+   - **Evaluación independiente contra el dataset de prueba (206 muestras):**
+     ```bash
+     python src/evaluate_model.py --evaluate --model-path models/wheat_cheese_4swj34tkjn/best_model/model.pkl
+     ```
+
+   > [!NOTE]
+   > Para más detalles sobre la resolución de errores del SDK (`BatchGetResolvedUrisDto`) y alternativas documentadas de descarga, consulte [`docs/azure_ml_sdk_download_issue.md`](docs/azure_ml_sdk_download_issue.md).
 
 ---
 

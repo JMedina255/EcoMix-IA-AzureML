@@ -355,3 +355,82 @@ def test_model_selection_respects_experiment_provenance():
 
     assert winner_id is None, "Debe rechazar un child run que no coincida con el experimento actual"
     assert "no corresponde" in metadata.get("ambiguity_reason", "").lower()
+
+
+def test_download_handles_batch_get_resolved_uris_dto_type_error(tmp_path, capsys):
+    """
+    Test de regresión: Simula la excepción interna de Azure ML SDK
+    'TypeError: BatchGetResolvedUrisDto.__init__() got an unexpected keyword argument values'
+    Comprueba que la aplicación:
+    1. Entrega diagnóstico claro e instrucciones útiles de alternativa (az ml job download).
+    2. No oculta el error (raise ... from e).
+    3. Mantiene all=False.
+    """
+    mock_ml_client = MagicMock()
+    mock_job = MagicMock()
+    mock_job.name = "wheat_cheese_4swj34tkjn"
+    mock_job.status = "Completed"
+    mock_job.properties = {
+        "primary_metric": "normalized_root_mean_squared_error",
+        "metric_value": "0.05859",
+    }
+    mock_job.outputs = {"best_model": MagicMock()}
+    mock_ml_client.jobs.get.return_value = mock_job
+    mock_ml_client.resource_group_name = "EcomixIA"
+    mock_ml_client.workspace_name = "ecomix-ia-ml"
+
+    # Simular la excepción producida por azure-ai-ml 1.35.x
+    mock_ml_client.jobs.download.side_effect = TypeError(
+        "BatchGetResolvedUrisDto.__init__() got an unexpected keyword argument 'values'"
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        download_winner_model(
+            mock_ml_client,
+            job_name="wheat_cheese_4swj34tkjn",
+            download_dir=tmp_path
+        )
+
+    # 1. Error preservado (no ocultado)
+    assert isinstance(exc_info.value.__cause__, TypeError)
+    assert "BatchGetResolvedUrisDto" in str(exc_info.value.__cause__)
+
+    # 2. Instrucciones útiles impresas en consola
+    captured = capsys.readouterr().out
+    assert "az ml job download" in captured
+    assert "--output-name" in captured
+    assert "best_model" in captured
+    assert "BatchGetResolvedUrisDto" in captured
+    assert "ERROR DE COMPATIBILIDAD INTERNA DEL SDK AZURE ML" in captured
+
+    # 3. Descarga invocada con all=False
+    mock_ml_client.jobs.download.assert_called_once()
+    _, kwargs = mock_ml_client.jobs.download.call_args
+    assert kwargs.get("all") is False
+    assert kwargs.get("output_name") == "best_model"
+
+
+def test_download_does_not_declare_success_if_files_missing(tmp_path):
+    """
+    Comprueba que la aplicación nunca declara éxito si la descarga no depositó
+    archivos de modelo válidos (.pkl o MLmodel) en disco.
+    """
+    mock_ml_client = MagicMock()
+    mock_job = MagicMock()
+    mock_job.name = "wheat_cheese_4swj34tkjn"
+    mock_job.status = "Completed"
+    mock_job.properties = {}
+    mock_job.outputs = {"best_model": MagicMock()}
+    mock_ml_client.jobs.get.return_value = mock_job
+
+    # Simular que download() no descarga ningún archivo en tmp_path
+    mock_ml_client.jobs.download.return_value = None
+
+    with pytest.raises(FileNotFoundError) as exc_info:
+        download_winner_model(
+            mock_ml_client,
+            job_name="wheat_cheese_4swj34tkjn",
+            download_dir=tmp_path
+        )
+
+    assert "no se localizaron archivos válidos" in str(exc_info.value).lower()

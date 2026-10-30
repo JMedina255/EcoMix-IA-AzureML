@@ -564,35 +564,102 @@ def download_winner_model(
     print(f"  * Destino local: {dest_dir}")
     print("  * Parámetros de seguridad: all=False, output_name específico.")
 
-    ml_client.jobs.download(
-        name=target_job,
-        download_path=str(dest_dir),
-        output_name=chosen_output,
-        all=False
-    )
-    print(f"[OK] Artefacto '{chosen_output}' descargado selectivamente.")
+    rg_name = getattr(ml_client, "resource_group_name", None) or "EcomixIA"
+    ws_name = getattr(ml_client, "workspace_name", None) or "ecomix-ia-ml"
+    model_asset_name = info.get("model_asset_uri") or f"azureml_{target_job}_output_mlflow_log_model"
 
-    pkl_files = list(dest_dir.rglob("model.pkl"))
+    try:
+        ml_client.jobs.download(
+            name=target_job,
+            download_path=str(dest_dir),
+            output_name=chosen_output,
+            all=False
+        )
+    except TypeError as e:
+        err_msg = str(e)
+        if "BatchGetResolvedUrisDto" in err_msg or "values" in err_msg:
+            diag = (
+                "\n" + "=" * 65 + "\n"
+                "[ERROR DE COMPATIBILIDAD INTERNA DEL SDK AZURE ML]\n"
+                "=" * 65 + "\n"
+                f"Excepción capturada: TypeError: {err_msg}\n\n"
+                "Diagnóstico:\n"
+                "  Se produjo un error interno en la biblioteca 'azure-ai-ml' durante la resolución\n"
+                "  de URIs de modelos (en azure/ai/ml/operations/_model_dataplane_operations.py).\n"
+                "  El modelo REST generado BatchGetResolvedUrisDto espera el parámetro 'values_property',\n"
+                "  pero el SDK le envía 'values=model_ids'. Este es un defecto conocido de generación\n"
+                "  en las versiones actuales de azure-ai-ml (1.35.x).\n\n"
+                "Alternativas documentadas para recuperar el modelo de forma selectiva:\n"
+                "  1. Mediante Azure CLI (comando oficial de Azure ML v2):\n"
+                f"     az ml job download --name {target_job} --output-name {chosen_output} \\\n"
+                f"       --resource-group {rg_name} --workspace-name {ws_name} \\\n"
+                f"       --download-path \"{dest_dir}\"\n\n"
+                "  2. Mediante Azure ML Studio (interfaz gráfica):\n"
+                f"     a. Ingrese a: https://ml.azure.com\n"
+                f"     b. Navegue a Trabajos (Jobs) -> '{target_job}'\n"
+                f"     c. En la pestaña 'Outputs + logs', ubique la carpeta '{chosen_output}' y descárguela.\n"
+                f"     d. Extraiga los archivos en: {dest_dir}\n\n"
+                "  3. Mediante el activo de modelo (Model Asset) descargado directamente vía Python SDK:\n"
+                f"     ml_client.models.download(name='{model_asset_name.split(':')[0]}', version='1', download_path='{dest_dir}')\n\n"
+                "  Una vez descargados los archivos, ejecute la evaluación localmente con:\n"
+                f"     python src/evaluate_model.py --evaluate --model-path \"{dest_dir}\"\n"
+                "=" * 65 + "\n"
+            )
+            print(diag)
+            raise RuntimeError(
+                f"Error interno del SDK Azure ML al resolver el output '{chosen_output}': {err_msg}. "
+                f"Alternativa documentada: az ml job download --name {target_job} --output-name {chosen_output}"
+            ) from e
+        raise
+    except Exception as e:
+        err_msg = str(e)
+        if "BatchGetResolvedUrisDto" in err_msg or ("unexpected keyword argument" in err_msg and "values" in err_msg):
+            diag = (
+                "\n" + "=" * 65 + "\n"
+                "[ERROR DE COMPATIBILIDAD INTERNA DEL SDK AZURE ML]\n"
+                "=" * 65 + "\n"
+                f"Excepción capturada: {type(e).__name__}: {err_msg}\n\n"
+                "Diagnóstico:\n"
+                "  Fallo en la resolución del output del modelo por incompatibilidad de contrato DTO interno.\n\n"
+                "Alternativa documentada mediante Azure CLI:\n"
+                f"  az ml job download --name {target_job} --output-name {chosen_output} \\\n"
+                f"    --resource-group {rg_name} --workspace-name {ws_name} \\\n"
+                f"    --download-path \"{dest_dir}\"\n"
+                "=" * 65 + "\n"
+            )
+            print(diag)
+            raise RuntimeError(
+                f"Fallo en la descarga selectiva del modelo por error interno del SDK: {err_msg}"
+            ) from e
+        raise
+
+    # 3. Verificar que los archivos existen antes de declarar la descarga como exitosa
+    if not dest_dir.exists():
+        raise FileNotFoundError(
+            f"El directorio de destino no existe tras la descarga: {dest_dir}"
+        )
+
+    pkl_files = [p for p in dest_dir.rglob("model.pkl") if p.is_file() and p.stat().st_size > 0]
     if not pkl_files:
-        pkl_files = list(dest_dir.rglob("*.pkl"))
+        pkl_files = [p for p in dest_dir.rglob("*.pkl") if p.is_file() and p.stat().st_size > 0]
 
     if pkl_files:
         selected_model = pkl_files[0]
-        print(f"[OK] Archivo de modelo localizado: {selected_model}")
+        print(f"\n[DESCARGA EXITOSA VERIFICADA]")
+        print(f"  * Archivo de modelo: {selected_model}")
+        print(f"  * Tamaño en disco:   {selected_model.stat().st_size:,} bytes")
         return selected_model
 
-    mlmodel_files = list(dest_dir.rglob("MLmodel"))
+    mlmodel_files = [p for p in dest_dir.rglob("MLmodel") if p.is_file() and p.stat().st_size > 0]
     if mlmodel_files:
         selected_model = mlmodel_files[0].parent
-        print(f"[OK] Paquete MLmodel localizado: {selected_model}")
+        print(f"\n[DESCARGA EXITOSA VERIFICADA]")
+        print(f"  * Paquete MLmodel:   {selected_model}")
         return selected_model
 
     raise FileNotFoundError(
-        f"Se completó la descarga del output '{chosen_output}', pero no se localizó 'model.pkl' ni 'MLmodel' en {dest_dir}."
-    )
-
-    raise FileNotFoundError(
-        f"Se completó la descarga del output '{chosen_output}', pero no se localizó 'model.pkl' ni 'MLmodel' en {dest_dir}."
+        f"Se completó la operación de descarga del output '{chosen_output}', pero no se localizaron "
+        f"archivos válidos ('model.pkl' ni 'MLmodel' no vacíos) en: {dest_dir}."
     )
 
 
