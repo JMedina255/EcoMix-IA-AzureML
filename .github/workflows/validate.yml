@@ -1,0 +1,81 @@
+name: EcoMix IA CI — Validation & Quality
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# Principio de menor privilegio: solo lectura para el workflow de CI
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate (Python ${{ matrix.python-version }} on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.13"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Upgrade pip and install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Syntax check (py_compile)
+        run: |
+          python -m py_compile src/prepare_data.py src/evaluate_model.py scripts/doctor.py scripts/sync_state.py
+
+      - name: Run automated test suite (pytest)
+        run: |
+          pytest tests/ -v
+
+      - name: Verify data reproducibility & partitions integrity
+        run: |
+          python -c "
+          import pandas as pd
+          from pathlib import Path
+
+          train_path = Path('data/processed/concrete_train.csv')
+          test_path = Path('data/processed/concrete_test.csv')
+
+          assert train_path.exists(), 'Falta concrete_train.csv'
+          assert test_path.exists(), 'Falta concrete_test.csv'
+
+          df_train = pd.read_csv(train_path)
+          df_test = pd.read_csv(test_path)
+
+          assert len(df_train) == 824, f'Train set debe tener 824 filas, tiene {len(df_train)}'
+          assert len(df_test) == 206, f'Test set debe tener 206 filas, tiene {len(df_test)}'
+          assert 'concrete_compressive_strength' in df_train.columns
+          assert 'concrete_compressive_strength' in df_test.columns
+          print('[OK] Integridad y reproducibilidad de particiones confirmada.')
+          "
+
+      - name: Verify documentation and project state synchronization
+        run: |
+          python scripts/sync_state.py --check
+
+      - name: Generate diagnostic and state summary artifact
+        run: |
+          python scripts/doctor.py --json > doctor_summary_${{ matrix.os }}_py${{ matrix.python-version }}.json
+
+      - name: Upload project state summary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: state-summary-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: doctor_summary_${{ matrix.os }}_py${{ matrix.python-version }}.json
+          retention-days: 7
