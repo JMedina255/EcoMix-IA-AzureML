@@ -129,9 +129,9 @@ def test_create_dummy_sample_has_correct_columns_and_types():
     assert df["age"].iloc[0] == 28
 
 
-def test_cli_execution_with_check_flag():
+def test_cli_execution_with_check_flag(simulated_mlflow_model: Path):
     proc = subprocess.run(
-        [sys.executable, "scripts/verify_model_load.py", "--check"],
+        [sys.executable, "scripts/verify_model_load.py", "--check", "--model-dir", str(simulated_mlflow_model)],
         cwd=str(BASE_DIR),
         capture_output=True,
         text=True,

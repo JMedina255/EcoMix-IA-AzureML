@@ -381,6 +381,12 @@ def main() -> int:
         description="Diagnóstico y verificación del runtime del modelo AutoML."
     )
     parser.add_argument(
+        "--models-dir",
+        type=str,
+        default=None,
+        help="Ruta explícita al directorio base de modelos (por defecto: models/)."
+    )
+    parser.add_argument(
         "--inspect",
         action="store_true",
         default=True,
@@ -398,7 +404,8 @@ def main() -> int:
     )
 
     args = parser.parse_args()
-    report = generate_runtime_report(DEFAULT_MODELS_DIR)
+    models_dir = Path(args.models_dir).resolve() if args.models_dir else DEFAULT_MODELS_DIR
+    report = generate_runtime_report(models_dir)
 
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))

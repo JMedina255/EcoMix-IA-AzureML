@@ -122,9 +122,19 @@ def test_classify_dependencies_categorizes_correctly():
     assert len(diag["compatible"]) > 0
 
 
-def test_cli_json_mode():
+def test_cli_json_mode(tmp_path: Path):
+    # Crear un artefacto simulado en tmp_path para que pase tanto en local como en CI limpio
+    mock_dir = tmp_path / "mock_run" / "mlflow-model"
+    mock_dir.mkdir(parents=True)
+    with open(mock_dir / "MLmodel", "w", encoding="utf-8") as f:
+        yaml.dump({
+            "artifact_path": "outputs/mlflow-model",
+            "flavors": {"sklearn": {"sklearn_version": "1.5.1"}},
+            "run_id": "mock_123"
+        }, f)
+
     proc = subprocess.run(
-        [sys.executable, "scripts/check_model_runtime.py", "--json"],
+        [sys.executable, "scripts/check_model_runtime.py", "--models-dir", str(tmp_path), "--json"],
         cwd=str(BASE_DIR),
         capture_output=True,
         text=True,
