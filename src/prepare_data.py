@@ -6,17 +6,22 @@ Proyecto: ML EcomixIA
 import os
 import json
 import shutil
+from pathlib import Path
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
 # Configuración de rutas y semilla
 SEED = 42
 TEST_SIZE = 0.20
-RAW_DATA_PATH = "data/raw/concrete_raw.csv"
-CLEAN_DATA_PATH = "data/processed/concrete_clean.csv"
-TRAIN_DATA_PATH = "data/processed/concrete_train.csv"
-TEST_DATA_PATH = "data/processed/concrete_test.csv"
-METADATA_PATH = "data/processed/metadata.json"
+BASE_DIR = Path(__file__).resolve().parent.parent
+RAW_DIR = BASE_DIR / "data" / "raw"
+PROCESSED_DIR = BASE_DIR / "data" / "processed"
+RAW_DATA_PATH = RAW_DIR / "concrete_raw.csv"
+CLEAN_DATA_PATH = PROCESSED_DIR / "concrete_clean.csv"
+TRAIN_DATA_PATH = PROCESSED_DIR / "concrete_train.csv"
+TEST_DATA_PATH = PROCESSED_DIR / "concrete_test.csv"
+METADATA_PATH = PROCESSED_DIR / "metadata.json"
+ROOT_SOURCE_PATH = BASE_DIR / "concrete_data.csv"
 
 # Mapeo de columnas y unidades documentadas en UCI (ID 165)
 COLUMNS_METADATA = {
@@ -83,18 +88,19 @@ def prepare_dataset():
     print("=" * 60)
 
     # 1. Crear directorios organizados
-    os.makedirs("data/raw", exist_ok=True)
-    os.makedirs("data/processed", exist_ok=True)
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
     # 2. Asegurar y conservar copia original sin modificar
-    if not os.path.exists("concrete_data.csv"):
-        raise FileNotFoundError("No se encontró 'concrete_data.csv'. Ejecuta primero dataset.py.")
-
-    if not os.path.exists(RAW_DATA_PATH):
-        shutil.copy("concrete_data.csv", RAW_DATA_PATH)
+    if RAW_DATA_PATH.exists():
+        print(f"[INFO] Copia original existente en: {RAW_DATA_PATH}")
+    elif ROOT_SOURCE_PATH.exists():
+        shutil.copy(ROOT_SOURCE_PATH, RAW_DATA_PATH)
         print(f"[OK] Copia original conservada en: {RAW_DATA_PATH}")
     else:
-        print(f"[INFO] Copia original existente en: {RAW_DATA_PATH}")
+        raise FileNotFoundError(
+            f"No se encontró el dataset crudo en '{RAW_DATA_PATH}' ni en '{ROOT_SOURCE_PATH}'."
+        )
 
     # Cargar datos originales
     df_raw = pd.read_csv(RAW_DATA_PATH)
