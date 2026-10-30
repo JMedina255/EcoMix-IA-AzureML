@@ -18,6 +18,7 @@ import pandas as pd
 import numpy as np
 import joblib
 import matplotlib.pyplot as plt
+import sklearn
 from sklearn.metrics import r2_score, root_mean_squared_error, mean_absolute_error
 
 from azure.ai.ml import MLClient
@@ -53,8 +54,9 @@ def get_azure_credentials():
         print("[AUTH] Credencial local activa detectada.")
         return cred
     except Exception:
-        print("[AUTH] No se detectó sesión local activa. Abriendo navegador para autenticación...")
-        return InteractiveBrowserCredential()
+        print("[AUTH] No se detectó sesión local activa (Azure CLI / variables de entorno).")
+        print("[AUTH] Intentando autenticación mediante navegador interactivo...")
+        return InteractiveBrowserCredential(timeout=10)
 
 
 def get_ml_client(config_path: Path = CONFIG_PATH) -> MLClient:
@@ -155,7 +157,6 @@ def resolve_winner_model(ml_client: MLClient, job: Any) -> Tuple[Optional[str], 
 
     # Validar procedencia del experimento
     if winner_id:
-        # El ID del child run debe corresponder con el parent job name
         if not winner_id.startswith(job.name):
             metadata["ambiguity_reason"] = (
                 f"El child run '{winner_id}' no corresponde al experimento '{job.name}'. "
@@ -212,21 +213,19 @@ def inspect_automl_job(ml_client: MLClient, job_name: str) -> Dict[str, Any]:
 
     status = str(getattr(job, "status", "Unknown"))
     job_properties = getattr(job, "properties", {}) or {}
-    job_tags = getattr(job, "tags", {}) or {}
     job_outputs = getattr(job, "outputs", {}) or {}
+
     raw_metric = getattr(job, "primary_metric", None)
     primary_metric = raw_metric if isinstance(raw_metric, str) else job_properties.get("primary_metric", "No especificado")
 
     winner_id, output_name, resolve_meta = resolve_winner_model(ml_client, job)
 
-    # Entorno y dependencias
     env_info = {
         "environment": str(getattr(job, "environment", "AzureML-AutoML default")),
         "python_version": job_properties.get("python_version"),
         "algorithm": job_properties.get("run_algorithm")
     }
 
-    # Si se conoce el child run, enriquecer metadatos
     if winner_id:
         try:
             winner_job = ml_client.jobs.get(name=winner_id)
@@ -256,7 +255,6 @@ def inspect_automl_job(ml_client: MLClient, job_name: str) -> Dict[str, Any]:
         )
     }
 
-    # Presentación legible en consola
     print(f"  • Estado del Experimento:       {status}")
     print(f"  • Métrica Primaria:             {primary_metric}")
     if resolve_meta.get("best_metric_value"):
@@ -301,14 +299,12 @@ def download_winner_model(
 
     info = inspect_automl_job(ml_client, job_name=job_name)
 
-    # 1. Validar estado completado
     if info["status"].lower() != "completed":
         raise ValueError(
             f"El trabajo '{job_name}' no ha finalizado exitosamente (estado actual: '{info['status']}'). "
             "No se permite la descarga de modelos de trabajos incompletos o fallidos."
         )
 
-    # 2. Validar que el modelo ganador esté inequívocamente identificado
     winner_id = info["winner_model_id"]
     if not winner_id:
         reason = info["resolve_metadata"].get("ambiguity_reason", "Metadatos insuficientes para confirmar modelo ganador.")
@@ -318,13 +314,10 @@ def download_winner_model(
             "Se detiene la descarga para evitar recuperar modelos incorrectos."
         )
 
-    # 3. Determinar el target_job y output_name exacto
     chosen_output = output_name or info["output_name"]
     target_job = job_name
 
-    # Si el output está en el child run ganador, descargamos desde el child run
     if not chosen_output or chosen_output not in info["registered_outputs"]:
-        # Probar con el child run
         try:
             child_job = ml_client.jobs.get(name=winner_id)
             c_outputs = getattr(child_job, "outputs", {}) or {}
@@ -353,7 +346,6 @@ def download_winner_model(
     print(f"  • Destino local: {dest_dir}")
     print("  • Parámetros de seguridad: all=False, output_name específico.")
 
-    # Descarga selectiva estricta: NUNCA all=True
     ml_client.jobs.download(
         name=target_job,
         download_path=str(dest_dir),
@@ -362,7 +354,6 @@ def download_winner_model(
     )
     print(f"[OK] Artefacto '{chosen_output}' descargado selectivamente.")
 
-    # Localizar model.pkl o MLmodel en el directorio destino
     pkl_files = list(dest_dir.rglob("model.pkl"))
     if not pkl_files:
         pkl_files = list(dest_dir.rglob("*.pkl"))
@@ -372,7 +363,6 @@ def download_winner_model(
         print(f"[OK] Archivo de modelo localizado: {selected_model}")
         return selected_model
 
-    # Si es formato MLflow
     mlmodel_files = list(dest_dir.rglob("MLmodel"))
     if mlmodel_files:
         selected_model = mlmodel_files[0].parent
@@ -393,60 +383,302 @@ def compute_file_sha256(file_path: Path) -> str:
     return sha.hexdigest()
 
 
-def evaluate_model(model_path: Path, job_name: str = DEFAULT_JOB_NAME, winner_id: Optional[str] = None):
+def validate_test_dataset(
+    test_path: Path = TEST_DATA_PATH,
+    train_path: Optional[Path] = TRAIN_DATA_PATH
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     """
-    Evalúa el modelo contra el conjunto de prueba independiente (206 muestras).
+    Valida el conjunto de prueba independiente y analiza solapamientos con entrenamiento.
+    """
+    if not test_path.exists():
+        raise FileNotFoundError(f"No se encontró el dataset de prueba en: {test_path}")
+
+    df_test = pd.read_csv(test_path)
+    total_test_rows = len(df_test)
+
+    val_report: Dict[str, Any] = {
+        "test_samples": total_test_rows,
+        "test_path": str(test_path),
+        "test_sha256": compute_file_sha256(test_path),
+        "expected_sample_count": 206,
+        "is_sample_count_valid": (total_test_rows == 206),
+        "columns_present": list(df_test.columns),
+        "null_counts": df_test.isnull().sum().to_dict(),
+        "total_nulls": int(df_test.isnull().sum().sum()),
+        "overlaps": {
+            "duplicate_rows_in_test": int(df_test.duplicated().sum()),
+            "overlap_full_rows_with_train": 0,
+            "overlap_features_only_with_train": 0,
+            "notes": []
+        },
+        "warnings": []
+    }
+
+    if total_test_rows != 206:
+        val_report["warnings"].append(
+            f"El dataset de prueba contiene {total_test_rows} observaciones (se esperaban exactamente 206)."
+        )
+
+    expected_all = EXPECTED_FEATURES + [TARGET_FEATURE]
+    missing = set(expected_all) - set(df_test.columns)
+    if missing:
+        raise ValueError(f"Faltan columnas esperadas en el dataset de prueba: {missing}")
+
+    if val_report["total_nulls"] > 0:
+        raise ValueError(f"Se detectaron {val_report['total_nulls']} valores nulos inesperados en el dataset de prueba.")
+
+    non_numeric_cols = [c for c in expected_all if not pd.api.types.is_numeric_dtype(df_test[c])]
+    if non_numeric_cols:
+        raise ValueError(f"Columnas con tipo no numérico detectadas en test set: {non_numeric_cols}")
+
+    # Análisis de solapamiento con train (respetando réplicas de laboratorio ASTM)
+    if train_path and train_path.exists():
+        df_train = pd.read_csv(train_path)
+        val_report["train_path"] = str(train_path)
+        val_report["train_sha256"] = compute_file_sha256(train_path)
+
+        # 1. Filas completas idénticas (features + target)
+        overlap_full = pd.merge(df_test, df_train, how="inner", on=expected_all)
+        val_report["overlaps"]["overlap_full_rows_with_train"] = len(overlap_full)
+
+        # 2. Solo características de entrada (mismas dosificaciones probadas)
+        overlap_features = pd.merge(df_test[EXPECTED_FEATURES], df_train[EXPECTED_FEATURES], how="inner", on=EXPECTED_FEATURES)
+        val_report["overlaps"]["overlap_features_only_with_train"] = len(overlap_features)
+
+        if len(overlap_full) > 0:
+            val_report["overlaps"]["notes"].append(
+                f"Detectadas {len(overlap_full)} observaciones completas idénticas entre entrenamiento y prueba. "
+                "Corresponden a réplicas físicas de probetas cilíndricas preparadas por lote según norma ASTM C39."
+            )
+        if len(overlap_features) > 0 and len(overlap_features) > len(overlap_full):
+            val_report["overlaps"]["notes"].append(
+                f"Detectadas {len(overlap_features)} mezclas con dosificación idéntica pero variación de rotura natural."
+            )
+
+    return df_test, val_report
+
+
+def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, Any]:
+    """Calcula R2, RMSE, MAE, NRMSE controlando NaN e infinitos de forma segura."""
+    if len(y_true) == 0:
+        return {"r2_score": None, "rmse_mpa": None, "mae_mpa": None, "nrmse": None}
+
+    if len(y_true) < 2:
+        r2 = None
+    else:
+        try:
+            r2_val = float(r2_score(y_true, y_pred))
+            r2 = round(r2_val, 4) if np.isfinite(r2_val) else None
+        except Exception:
+            r2 = None
+
+    try:
+        rmse_val = float(root_mean_squared_error(y_true, y_pred))
+        rmse = round(rmse_val, 4) if np.isfinite(rmse_val) else None
+    except Exception:
+        rmse = None
+
+    try:
+        mae_val = float(mean_absolute_error(y_true, y_pred))
+        mae = round(mae_val, 4) if np.isfinite(mae_val) else None
+    except Exception:
+        mae = None
+
+    target_range = float(y_true.max() - y_true.min())
+    if target_range > 0 and rmse is not None and np.isfinite(rmse):
+        nrmse_val = float(rmse / target_range)
+        nrmse = round(nrmse_val, 4) if np.isfinite(nrmse_val) else None
+    else:
+        nrmse = None
+
+    return {
+        "r2_score": r2,
+        "rmse_mpa": rmse,
+        "mae_mpa": mae,
+        "nrmse": nrmse
+    }
+
+
+def evaluate_model(
+    model_path: Path,
+    job_name: str = DEFAULT_JOB_NAME,
+    winner_id: Optional[str] = None,
+    test_path: Path = TEST_DATA_PATH,
+    train_path: Optional[Path] = TRAIN_DATA_PATH,
+    reports_dir: Path = REPORTS_DIR
+) -> Dict[str, Any]:
+    """
+    Evalúa el modelo contra el conjunto de prueba independiente (206 muestras)
+    con control estricto de memoria, tiempo, validación de datos y trazabilidad completa.
     """
     print("\n" + "=" * 65)
     print("EVALUACIÓN CONTRA CONJUNTO DE PRUEBA INDEPENDIENTE (TEST SET)")
     print("=" * 65)
 
-    if not TEST_DATA_PATH.exists():
-        raise FileNotFoundError(f"No se encontró el dataset de prueba en: {TEST_DATA_PATH}")
+    # 1. Validar el dataset de prueba y solapamientos
+    print(f"[DATASET] Validando datos de prueba desde: {test_path}")
+    df_test, val_report = validate_test_dataset(test_path=test_path, train_path=train_path)
+    print(f"  • Muestras de prueba verificadas: {val_report['test_samples']} (Esperadas: 206)")
+    print(f"  • Total nulos:                   {val_report['total_nulls']}")
+    print(f"  • Réplicas en test:              {val_report['overlaps']['duplicate_rows_in_test']}")
+    if val_report["overlaps"]["overlap_full_rows_with_train"] > 0:
+        print(f"  • Réplicas ASTM con train:       {val_report['overlaps']['overlap_full_rows_with_train']}")
+    print(f"  • Hash SHA-256 test:             {val_report['test_sha256'][:16]}...")
 
-    # 1. Cargar modelo controlando recursos
-    print(f"[LOAD] Cargando modelo: {model_path}")
-    model = joblib.load(model_path)
-    print(f"[INFO] Estimador cargado: {type(model).__name__}")
+    # 2. Controlar recursos (Memoria y Tiempo)
+    tracemalloc.start()
+    t_start = time.perf_counter()
 
-    # 2. Cargar datos de prueba
-    df_test = pd.read_csv(TEST_DATA_PATH)
-    X_test = df_test.drop(columns=[TARGET_FEATURE])
-    y_test = df_test[TARGET_FEATURE]
+    try:
+        print(f"\n[LOAD] Cargando modelo ganador: {model_path}")
+        model = joblib.load(model_path)
+        model_type_name = type(model).__name__
+        print(f"[INFO] Estimador cargado: {model_type_name}")
 
-    # 3. Predicciones
-    y_pred = model.predict(X_test)
-    if hasattr(y_pred, "values"):
-        y_pred = y_pred.values.ravel()
-    elif isinstance(y_pred, np.ndarray) and y_pred.ndim > 1:
-        y_pred = y_pred.ravel()
+        X_test = df_test[EXPECTED_FEATURES]
+        y_test = df_test[TARGET_FEATURE].values
 
-    # 4. Métricas
-    r2 = float(r2_score(y_test, y_pred))
-    rmse = float(root_mean_squared_error(y_test, y_pred))
-    mae = float(mean_absolute_error(y_test, y_pred))
-    nrmse = float(rmse / (y_test.max() - y_test.min()))
+        y_pred = model.predict(X_test)
+        if hasattr(y_pred, "values"):
+            y_pred = y_pred.values.ravel()
+        elif isinstance(y_pred, np.ndarray) and y_pred.ndim > 1:
+            y_pred = y_pred.ravel()
+
+    except (MemoryError, AttributeError, ModuleNotFoundError, ImportError) as err:
+        tracemalloc.stop()
+        raise RuntimeError(
+            f"Error crítico al cargar o evaluar el modelo ({type(err).__name__}): {err}\n"
+            "Verifique la compatibilidad del entorno virtual (Python / scikit-learn / joblib)."
+        ) from err
+
+    t_end = time.perf_counter()
+    current_mem, peak_mem = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+
+    resource_usage = {
+        "elapsed_seconds": round(t_end - t_start, 4),
+        "peak_memory_mb": round(peak_mem / (1024 * 1024), 2),
+        "current_memory_mb": round(current_mem / (1024 * 1024), 2)
+    }
+
+    # 3. Métricas Globales
+    global_metrics = compute_metrics(y_test, y_pred)
 
     print("\n" + "-" * 40)
     print(f"MÉTRICAS GLOBALES (Test Set: {len(df_test)} muestras):")
     print("-" * 40)
-    print(f"  • R² Score:  {r2:.4f}")
-    print(f"  • RMSE:      {rmse:.2f} MPa")
-    print(f"  • MAE:       {mae:.2f} MPa")
-    print(f"  • NRMSE:     {nrmse:.4f}")
+    r2_display = f"{global_metrics['r2_score']:.4f}" if global_metrics['r2_score'] is not None else "N/A"
+    print(f"  • R² Score:  {r2_display} (Capacidad predictiva global)")
+    print(f"  • RMSE:      {global_metrics['rmse_mpa']:.2f} MPa")
+    print(f"  • MAE:       {global_metrics['mae_mpa']:.2f} MPa")
+    print(f"  • NRMSE:     {global_metrics['nrmse']:.4f}")
     print("-" * 40)
 
-    # 5. Segmentada
+    # 4. Evaluación segmentada por edades críticas (7 y 28 días)
     print("\nEVALUACIÓN SEGMENTADA POR EDAD DE CURADO:")
+    segmented_metrics: Dict[str, Any] = {}
     for age_val in [7, 28]:
         mask = (df_test["age"] == age_val)
         count = int(mask.sum())
-        if count > 0:
-            sub_mae = float(mean_absolute_error(y_test[mask], y_pred[mask]))
-            sub_rmse = float(root_mean_squared_error(y_test[mask], y_pred[mask]))
-            print(f"  -> Ensayos a {age_val} días ({count} probetas): MAE={sub_mae:.2f} MPa | RMSE={sub_rmse:.2f} MPa")
+        if count == 0:
+            segmented_metrics[f"age_{age_val}_days"] = {
+                "sample_count": 0,
+                "status": "Sin muestras en test set",
+                "metrics": None
+            }
+            print(f"  -> Ensayos a {age_val} días: 0 muestras")
+        else:
+            sub_y = y_test[mask]
+            sub_pred = y_pred[mask]
+            sub_m = compute_metrics(sub_y, sub_pred)
+            sub_status = "Evaluado" if count >= 2 else "Muestras insuficientes para R² (<2)"
+            segmented_metrics[f"age_{age_val}_days"] = {
+                "sample_count": count,
+                "status": sub_status,
+                "metrics": sub_m
+            }
+            r2_sub_disp = f"{sub_m['r2_score']:.4f}" if sub_m['r2_score'] is not None else "N/A"
+            print(f"  -> Ensayos a {age_val} días ({count} probetas): MAE={sub_m['mae_mpa']:.2f} MPa | RMSE={sub_m['rmse_mpa']:.2f} MPa | R²={r2_sub_disp}")
+
+    # 5. Generar reporte estructurado para trazabilidad
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_file_name = f"evaluation_{job_name}.json"
+    report_path = reports_dir / report_file_name
+
+    if report_path.exists():
+        print(f"\n[ADVERTENCIA] Se sobrescribirá el reporte previo existente en: {report_path}")
+
+    model_sha = compute_file_sha256(model_path) if model_path.is_file() else None
+
+    report = {
+        "metadata": {
+            "project": "EcoMix IA",
+            "phase": "Fase 4 - Evaluación Independiente de Modelo AutoML",
+            "job_name": job_name,
+            "winner_model_id": winner_id or str(model_path.name),
+            "evaluation_timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "model_path": str(model_path),
+            "model_sha256": model_sha,
+            "model_type": model_type_name
+        },
+        "environment": {
+            "python_version": sys.version,
+            "platform": sys.platform,
+            "dependencies": {
+                "pandas": getattr(pd, "__version__", None),
+                "numpy": getattr(np, "__version__", None),
+                "scikit_learn": getattr(sklearn, "__version__", None),
+                "joblib": getattr(joblib, "__version__", None)
+            }
+        },
+        "dataset_validation": val_report,
+        "resource_usage": resource_usage,
+        "global_metrics": global_metrics,
+        "segmented_metrics": segmented_metrics,
+        "sample_predictions": [
+            {
+                "index": int(i),
+                "actual_mpa": round(float(y_test[i]), 2),
+                "predicted_mpa": round(float(y_pred[i]), 2),
+                "absolute_error_mpa": round(float(abs(y_test[i] - y_pred[i])), 2),
+                "age_days": int(df_test["age"].iloc[i])
+            }
+            for i in range(min(10, len(df_test)))
+        ]
+    }
+
+    with open(report_path, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2, ensure_ascii=False)
+    print(f"\n[OK] Reporte de evaluación JSON guardado en: {report_path}")
+
+    # 6. Generar gráfico Real vs Predicho
+    plot_file_name = f"evaluation_{job_name}_plot.png"
+    plot_path = reports_dir / plot_file_name
+
+    plt.figure(figsize=(8, 6))
+    plt.scatter(y_test, y_pred, alpha=0.7, edgecolors="k", color="#2b5c8f", label=f"Muestras Test ({len(df_test)})")
+    min_val = min(float(y_test.min()), float(y_pred.min()))
+    max_val = max(float(y_test.max()), float(y_pred.max()))
+    plt.plot([min_val, max_val], [min_val, max_val], "r--", linewidth=2, label="Predicción Perfecta (1:1)")
+    plt.title(
+        f"EcoMix IA — Evaluación del Modelo Ganador ({job_name})\n"
+        f"R²: {r2_display} | RMSE: {global_metrics['rmse_mpa']:.2f} MPa | MAE: {global_metrics['mae_mpa']:.2f} MPa",
+        fontsize=11
+    )
+    plt.xlabel("Resistencia Real Experimental (MPa)", fontsize=10)
+    plt.ylabel("Resistencia Predicha por el Modelo (MPa)", fontsize=10)
+    plt.grid(True, linestyle="--", alpha=0.5)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(plot_path, dpi=200)
+    plt.close()
+    print(f"[OK] Gráfico de correlación guardado en: {plot_path}")
 
     print("\n" + "=" * 65)
+    print(f"Evaluación completada exitosamente en {resource_usage['elapsed_seconds']} s (RAM pico: {resource_usage['peak_memory_mb']} MB).")
+    print("=" * 65 + "\n")
+
+    return report
 
 
 def parse_args(args=None):
@@ -488,7 +720,6 @@ def parse_args(args=None):
 def main(argv=None):
     args = parse_args(argv)
 
-    # Determinar modo: El predeterminado debe ser --inspect
     is_evaluate = args.evaluate
     is_download = args.download
     is_inspect = args.inspect or (not is_download and not is_evaluate)
@@ -496,8 +727,13 @@ def main(argv=None):
     job_name = args.job_name
 
     if is_inspect:
-        ml_client = get_ml_client()
-        inspect_automl_job(ml_client, job_name=job_name)
+        try:
+            ml_client = get_ml_client()
+            inspect_automl_job(ml_client, job_name=job_name)
+        except Exception as e:
+            print(f"\n[ERROR DE CONEXIÓN AZURE] No se pudo completar la inspección del job '{job_name}':\n  {e}")
+            print("\nRecomendación: Ejecute 'az login' en su terminal local para autenticar su cuenta de Azure.")
+            sys.exit(1)
         return
 
     if is_download:
@@ -510,13 +746,12 @@ def main(argv=None):
         if args.model_path:
             model_path = Path(args.model_path)
         else:
-            # Buscar en models/job_name
             job_models_dir = MODELS_DIR / job_name
             pkl_files = list(job_models_dir.rglob("*.pkl")) if job_models_dir.exists() else []
             if not pkl_files:
                 raise FileNotFoundError(
                     f"No se encontró ningún modelo local para '{job_name}' en {job_models_dir}.\n"
-                    "Ejecute primero con '--download --job-name {job_name}' o especifique '--model-path <ruta>'."
+                    f"Ejecute primero con '--download --job-name {job_name}' o especifique '--model-path <ruta>'."
                 )
             model_path = pkl_files[0]
 
