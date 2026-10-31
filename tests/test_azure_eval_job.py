@@ -24,9 +24,13 @@ from scripts.prepare_azure_eval_job import (
     EXPECTED_WINNER_MODEL_ASSET,
     EXPECTED_WINNER_CHILD_RUN,
     TEST_DATA_PATH,
+    audit_code_snapshot_exclusions,
     check_code_snapshot_security,
     compute_file_sha256,
     validate_eval_job_specification,
+    SnapshotExclusionEvaluator,
+    PROBE_FORBIDDEN_FILES,
+    PROBE_REQUIRED_FILES,
 )
 
 
@@ -136,6 +140,122 @@ def test_code_snapshot_security_verifies_amlignore_and_exclusions(tmp_path):
     inc_valid, inc_issues = check_code_snapshot_security(mock_dir)
     assert inc_valid is False
     assert any("config.json" in iss for iss in inc_issues)
+
+
+def test_code_snapshot_audit_passes_on_real_repository():
+    """Comprueba que la auditoría completa de exclusión aprueba el repositorio real sin fugas."""
+    is_valid, issues, audit_details = audit_code_snapshot_exclusions(BASE_DIR)
+    assert is_valid is True, f"Fallo en auditoría de empaquetado del repositorio: {issues}"
+    assert audit_details["amlignore_exists"] is True
+    assert audit_details["forbidden_probes_excluded"] is True
+    assert audit_details["required_probes_included"] is True
+    assert audit_details["real_workspace_leaks_detected"] == 0
+    assert audit_details["forbidden_probes_tested"] >= 20
+
+
+def test_code_snapshot_audit_rejects_included_config_json(tmp_path):
+    """Comprueba que la auditoría rechaza un empaquetado que incluiría config.json."""
+    mock_dir = tmp_path / "leak_config"
+    mock_dir.mkdir()
+    # amlignore que ignora todo excepto config.json
+    (mock_dir / ".amlignore").write_text(".env\n*.key\n*.token\n.venv/\nmodels/\n*.pkl\ndata/\n", encoding="utf-8")
+    is_valid, issues, audit = audit_code_snapshot_exclusions(mock_dir)
+    assert is_valid is False
+    assert any("config.json" in iss for iss in issues)
+
+
+def test_code_snapshot_audit_rejects_included_env_and_tokens(tmp_path):
+    """Comprueba que la auditoría rechaza snapshots que incluirían archivos .env o tokens."""
+    mock_dir = tmp_path / "leak_secrets"
+    mock_dir.mkdir()
+    (mock_dir / ".amlignore").write_text("config.json\n.venv/\nmodels/\n*.pkl\ndata/\n", encoding="utf-8")
+    is_valid, issues, audit = audit_code_snapshot_exclusions(mock_dir)
+    assert is_valid is False
+    assert any(".env" in iss or "token" in iss for iss in issues)
+
+
+def test_code_snapshot_audit_rejects_included_virtualenvs(tmp_path):
+    """Comprueba que la auditoría rechaza snapshots que no excluyen entornos virtuales."""
+    mock_dir = tmp_path / "leak_venv"
+    mock_dir.mkdir()
+    (mock_dir / ".amlignore").write_text("config.json\n.env\n*.key\n*.token\nmodels/\n*.pkl\ndata/\n", encoding="utf-8")
+    is_valid, issues, audit = audit_code_snapshot_exclusions(mock_dir)
+    assert is_valid is False
+    assert any(".venv" in iss for iss in issues)
+
+
+def test_code_snapshot_audit_rejects_included_models_or_binaries(tmp_path):
+    """Comprueba que la auditoría rechaza snapshots que incluirían binarios .pkl o models/."""
+    mock_dir = tmp_path / "leak_models"
+    mock_dir.mkdir()
+    (mock_dir / ".amlignore").write_text("config.json\n.env\n*.key\n*.token\n.venv/\ndata/\n", encoding="utf-8")
+    is_valid, issues, audit = audit_code_snapshot_exclusions(mock_dir)
+    assert is_valid is False
+    assert any("models/" in iss or ".pkl" in iss for iss in issues)
+
+
+def test_code_snapshot_audit_rejects_included_datasets(tmp_path):
+    """Comprueba que la auditoría rechaza snapshots que incluirían datasets locales (data/)."""
+    mock_dir = tmp_path / "leak_data"
+    mock_dir.mkdir()
+    (mock_dir / ".amlignore").write_text("config.json\n.env\n*.key\n*.token\n.venv/\nmodels/\n*.pkl\n", encoding="utf-8")
+    is_valid, issues, audit = audit_code_snapshot_exclusions(mock_dir)
+    assert is_valid is False
+    assert any("data/" in iss or "dataset" in iss for iss in issues)
+
+
+def test_code_snapshot_audit_rejects_erroneous_source_code_exclusion(tmp_path):
+    """Comprueba que la auditoría rechaza una regla que excluya erróneamente el código fuente necesario."""
+    mock_dir = tmp_path / "bad_src_rule"
+    mock_dir.mkdir()
+    (mock_dir / ".amlignore").write_text(
+        "config.json\n.env\n*.key\n*.token\n.venv/\nmodels/\n*.pkl\ndata/\nsrc/\n",
+        encoding="utf-8"
+    )
+    is_valid, issues, audit = audit_code_snapshot_exclusions(mock_dir)
+    assert is_valid is False
+    assert any("código fuente esencial" in iss.lower() for iss in issues)
+
+
+def test_code_snapshot_pure_python_fallback_matches_expected_behavior(tmp_path):
+    """Comprueba que el motor de evaluación de respaldo en Python puro replica las exclusiones sin SDK."""
+    mock_dir = tmp_path / "pure_py_test"
+    mock_dir.mkdir()
+    (mock_dir / ".amlignore").write_text(
+        "config.json\n.env\n.env*\n*.env\n*.key\n*.pem\n*.token\n"
+        ".venv/\nvenv/\nenv/\nENV/\n"
+        "models/\n*.pkl\n*.joblib\n*.onnx\n"
+        "data/\ndataset/\n",
+        encoding="utf-8"
+    )
+    evaluator = SnapshotExclusionEvaluator(mock_dir)
+    # Forzar el motor a fallback_pure_python
+    evaluator.sdk_ignore_file = None
+    evaluator.engine_name = "fallback_pure_python"
+
+    for forbidden in PROBE_FORBIDDEN_FILES:
+        assert evaluator.is_path_excluded(forbidden) is True, f"Fallo en exclusión fallback de {forbidden}"
+
+    for req in PROBE_REQUIRED_FILES:
+        assert evaluator.is_path_excluded(req) is False, f"Fallo en inclusión fallback de {req}"
+
+
+def test_code_snapshot_detects_real_unexcluded_file_leak(tmp_path):
+    """Comprueba que la auditoría detecta archivos sensibles reales existentes en el directorio."""
+    mock_dir = tmp_path / "real_leak_dir"
+    mock_dir.mkdir()
+    (mock_dir / ".amlignore").write_text(
+        "config.json\n.env\n.venv/\ndata/\n",  # Falta models/ y *.pkl
+        encoding="utf-8"
+    )
+    # Crear modelo real en models/
+    models_dir = mock_dir / "models"
+    models_dir.mkdir()
+    (models_dir / "leaked_winner.pkl").write_bytes(b"dummy_weights")
+
+    is_valid, issues, audit = audit_code_snapshot_exclusions(mock_dir)
+    assert is_valid is False
+    assert any("fuga de modelo" in iss.lower() or "leaked_winner.pkl" in iss for iss in issues)
 
 
 def test_azure_eval_job_specifies_winner_child_run():

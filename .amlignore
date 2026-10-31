@@ -7,6 +7,8 @@
 # 1. Credenciales y Secretos Locales
 config.json
 .env
+.env*
+*.env
 *.key
 *.pem
 *.token

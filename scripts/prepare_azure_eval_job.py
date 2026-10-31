@@ -30,46 +30,247 @@ EXPECTED_COMPUTE_CLUSTER = "azureml:cpu-cluster-ecomix"
 EXPECTED_TIMEOUT_SECONDS = 1800
 EXPECTED_INSTANCE_COUNT = 1
 
+PROBE_FORBIDDEN_FILES = [
+    # 1. Credenciales y secretos
+    "config.json",
+    ".env",
+    ".env.local",
+    "prod.env",
+    "secrets/credentials.key",
+    "id_rsa.pem",
+    "tokens/access.token",
+    # 2. Entornos virtuales
+    ".venv/bin/python",
+    ".venv/Scripts/python.exe",
+    ".venv/Lib/site-packages/sklearn.py",
+    "venv/bin/activate",
+    "env/bin/python",
+    "ENV/bin/python",
+    # 3. Modelos binarios locales
+    "models/model.pkl",
+    "models/winner/model.pkl",
+    "nested/models/estimator.joblib",
+    "models/weights.onnx",
+    "model.pkl",
+    "weights.joblib",
+    # 4. Datasets (se proveen vía Data Assets e Inputs independientes)
+    "data/raw/concrete_raw.csv",
+    "data/processed/concrete_test.csv",
+    "data/processed/concrete_train.csv",
+    "dataset/concrete.csv",
+]
 
-def check_code_snapshot_security(repo_root: Path) -> Tuple[bool, List[str]]:
+PROBE_REQUIRED_FILES = [
+    "src/evaluate_model.py",
+    "src/utils.py",
+    "src/__init__.py",
+]
+
+
+class SnapshotExclusionEvaluator:
     """
-    Verifica que el empaquetado del código ('code: ../') no incluya accidentalmente
-    secretos (config.json, .env), modelos binarios locales (models/*.pkl) ni entornos virtuales (.venv).
-    Comprueba la existencia y suficiencia de exclusiones en '.amlignore' y '.gitignore'.
+    Evaluador no destructivo de reglas de exclusión para empaquetado de código en Azure ML.
+    Utiliza el mecanismo oficial del Azure ML SDK (azure.ai.ml._artifacts._artifact_utilities.get_ignore_file)
+    cuando está disponible, y dispone de un evaluador gitignore puro en Python como respaldo garantizado.
+    """
+    def __init__(self, repo_root: Path):
+        self.repo_root = Path(repo_root).resolve()
+        self.amlignore_path = self.repo_root / ".amlignore"
+        self.sdk_ignore_file = None
+        self.patterns: List[str] = []
+        self.engine_name = "fallback_pure_python"
+
+        if self.amlignore_path.exists():
+            try:
+                from azure.ai.ml._artifacts._artifact_utilities import get_ignore_file
+                ignore_obj = get_ignore_file(self.repo_root)
+                if ignore_obj and ignore_obj.exists():
+                    self.sdk_ignore_file = ignore_obj
+                    self.engine_name = "azure_ml_sdk"
+            except Exception:
+                pass
+
+            try:
+                content = self.amlignore_path.read_text(encoding="utf-8")
+                for line in content.splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        self.patterns.append(line)
+            except Exception:
+                pass
+
+    def is_path_excluded(self, rel_or_abs_path: Union[str, Path]) -> bool:
+        """Determina si una ruta relativa o absoluta es excluida del paquete de código."""
+        p = Path(rel_or_abs_path)
+        if not p.is_absolute():
+            abs_p = (self.repo_root / p).resolve()
+            rel_str = str(p).replace("\\", "/")
+        else:
+            abs_p = p.resolve()
+            try:
+                rel_str = str(abs_p.relative_to(self.repo_root)).replace("\\", "/")
+            except ValueError:
+                rel_str = str(p).replace("\\", "/")
+
+        # 1. Usar Azure ML SDK si está disponible
+        if self.sdk_ignore_file is not None:
+            try:
+                return bool(self.sdk_ignore_file.is_file_excluded(abs_p))
+            except Exception:
+                pass
+
+        # 2. Respaldo determinístico puro en Python conforme a reglas de gitignore/.amlignore
+        return self._pure_python_is_excluded(rel_str)
+
+    def _pure_python_is_excluded(self, rel_str: str) -> bool:
+        import fnmatch
+        rel_str = rel_str.strip("/")
+        parts = rel_str.split("/")
+
+        for pat in self.patterns:
+            pat = pat.strip()
+            if not pat or pat.startswith("#"):
+                continue
+
+            # Regla de directorio (termina con /)
+            if pat.endswith("/"):
+                clean_dir = pat.rstrip("/")
+                for part in parts:
+                    if fnmatch.fnmatch(part, clean_dir):
+                        return True
+                continue
+
+            # Regla con separador de ruta interno
+            if "/" in pat:
+                if fnmatch.fnmatch(rel_str, pat) or fnmatch.fnmatch(rel_str, "*/" + pat):
+                    return True
+            else:
+                # Coincidencia con nombre de archivo o cualquier componente de ruta
+                for part in parts:
+                    if fnmatch.fnmatch(part, pat):
+                        return True
+
+        return False
+
+
+def audit_code_snapshot_exclusions(repo_root: Path) -> Tuple[bool, List[str], Dict[str, Any]]:
+    """
+    Auditoría no destructiva del empaquetado de código para Azure ML Command Job.
+    Valida:
+      1. Presencia física de '.amlignore'.
+      2. Que ningún archivo confidencial (config.json, .env, *.key, *.token) sea empaquetado.
+      3. Que los entornos virtuales (.venv, venv, env) sean excluidos.
+      4. Que los modelos binarios locales (models/, *.pkl, *.joblib, *.onnx) sean excluidos.
+      5. Que los datasets locales (data/, dataset/) sean excluidos (se entregan vía Data Assets).
+      6. Que los scripts esenciales de código fuente ('src/evaluate_model.py', 'src/utils.py')
+         permanezcan estrictamente incluidos.
+      7. Inspección de archivos reales existentes en el workspace.
     """
     issues: List[str] = []
+    repo_root = Path(repo_root).resolve()
     amlignore_path = repo_root / ".amlignore"
+
     if not amlignore_path.exists():
         issues.append(
             "Falta el archivo '.amlignore' en la raíz del proyecto. "
             "Es indispensable para evitar la carga accidental de secretos y modelos locales en Azure ML."
         )
-        return False, issues
+        return False, issues, {
+            "amlignore_exists": False,
+            "engine_used": "none",
+            "forbidden_probes_tested": 0,
+            "required_probes_tested": 0
+        }
 
+    evaluator = SnapshotExclusionEvaluator(repo_root)
+
+    # Comprobación de contenido básico de .amlignore
     try:
         amlignore_content = amlignore_path.read_text(encoding="utf-8")
+        required_patterns = ["config.json", ".env", "models/", ".venv", "*.pkl"]
+        for req in required_patterns:
+            if req not in amlignore_content:
+                issues.append(
+                    f"La regla de exclusión obligatoria '{req}' no se encuentra definida en '.amlignore'."
+                )
     except Exception as e:
         issues.append(f"Error al leer '.amlignore': {e}")
-        return False, issues
 
-    required_exclusions = ["config.json", ".env", "models/", ".venv", "*.pkl"]
-    for req in required_exclusions:
-        if req not in amlignore_content:
+    # Auditoría con sondas controladas de archivos prohibidos
+    forbidden_failures = []
+    for probe in PROBE_FORBIDDEN_FILES:
+        if not evaluator.is_path_excluded(probe):
+            forbidden_failures.append(probe)
             issues.append(
-                f"La regla de exclusión obligatoria '{req}' no se encuentra definida en '.amlignore'."
+                f"Fallo de empaquetado: El archivo sensible o binario '{probe}' sería incluido en el snapshot de Azure ML."
             )
 
-    gitignore_path = repo_root / ".gitignore"
-    if gitignore_path.exists():
-        try:
-            gi_content = gitignore_path.read_text(encoding="utf-8")
-            for req in ["config.json", "models/", ".venv", "*.pkl"]:
-                if req not in gi_content:
-                    issues.append(f"Regla obligatoria '{req}' ausente en '.gitignore'.")
-        except Exception:
-            pass
+    # Auditoría con sondas controladas de archivos requeridos (código fuente)
+    required_failures = []
+    for req in PROBE_REQUIRED_FILES:
+        if evaluator.is_path_excluded(req):
+            required_failures.append(req)
+            issues.append(
+                f"Fallo de empaquetado: El código fuente esencial '{req}' sería erróneamente excluido del snapshot de Azure ML."
+            )
 
-    return len(issues) == 0, issues
+    # Auditoría de archivos reales presentes en el workspace
+    real_files_audited = 0
+    real_forbidden_leaks = []
+
+    # 1. config.json y .env locales reales
+    for real_name in ["config.json", ".env"]:
+        p = repo_root / real_name
+        if p.exists():
+            real_files_audited += 1
+            if not evaluator.is_path_excluded(p):
+                real_forbidden_leaks.append(real_name)
+                issues.append(f"Fuga detectada: Archivo real local '{real_name}' no está excluido por .amlignore.")
+
+    # 2. Binarios en models/ reales
+    models_dir = repo_root / "models"
+    if models_dir.exists():
+        for b in models_dir.rglob("*"):
+            if b.is_file():
+                real_files_audited += 1
+                if not evaluator.is_path_excluded(b):
+                    rel = str(b.relative_to(repo_root)).replace("\\", "/")
+                    real_forbidden_leaks.append(rel)
+                    issues.append(f"Fuga de modelo detectada: '{rel}' sería subido en el snapshot de código.")
+
+    # 3. Datasets en data/ reales
+    data_dir = repo_root / "data"
+    if data_dir.exists():
+        for d in data_dir.rglob("*"):
+            if d.is_file():
+                real_files_audited += 1
+                if not evaluator.is_path_excluded(d):
+                    rel = str(d.relative_to(repo_root)).replace("\\", "/")
+                    real_forbidden_leaks.append(rel)
+                    issues.append(f"Fuga de dataset detectada: '{rel}' sería subido en el snapshot de código.")
+
+    is_valid = len(issues) == 0
+    audit_details = {
+        "amlignore_exists": True,
+        "engine_used": evaluator.engine_name,
+        "forbidden_probes_tested": len(PROBE_FORBIDDEN_FILES),
+        "forbidden_probes_excluded": len(forbidden_failures) == 0,
+        "required_probes_tested": len(PROBE_REQUIRED_FILES),
+        "required_probes_included": len(required_failures) == 0,
+        "real_workspace_files_audited": real_files_audited,
+        "real_workspace_leaks_detected": len(real_forbidden_leaks)
+    }
+
+    return is_valid, issues, audit_details
+
+
+def check_code_snapshot_security(repo_root: Path) -> Tuple[bool, List[str]]:
+    """
+    Función de compatibilidad que verifica que el empaquetado del código ('code: ../')
+    no incluya secretos, modelos binarios ni entornos virtuales.
+    """
+    is_valid, issues, _ = audit_code_snapshot_exclusions(repo_root)
+    return is_valid, issues
 
 
 def compute_file_sha256(file_path: Path, normalize_newlines: bool = True) -> str:
@@ -121,8 +322,9 @@ def validate_eval_job_specification(
     # 0. Verificación de seguridad del empaquetado de código (code: ../)
     code_val = job_spec.get("code", "")
     code_dir = (job_yaml_path.parent / code_val).resolve()
-    sec_ok, sec_issues = check_code_snapshot_security(code_dir)
+    sec_ok, sec_issues, audit_details = audit_code_snapshot_exclusions(code_dir)
     metadata["code_snapshot_security_valid"] = sec_ok
+    metadata["code_snapshot_audit"] = audit_details
     if not sec_ok:
         errors.extend(sec_issues)
 
@@ -260,6 +462,13 @@ def print_validation_report(is_valid: bool, metadata: Dict[str, Any], errors: Li
     print(f" Outputs Definidos:    {', '.join(metadata.get('outputs', []))}")
     if metadata.get("sdk_schema_validated") is True:
         print(f" Validación SDK:       Compatible con esquema oficial Azure ML CommandJob")
+    if "code_snapshot_audit" in metadata:
+        audit = metadata["code_snapshot_audit"]
+        sec_label = "[PROTEGIDO]" if metadata.get("code_snapshot_security_valid") else "[VULNERABILIDAD DETECTADA]"
+        print(f" Seguridad Snapshot:   {sec_label}")
+        print(f"   * Motor de Reglas:  {audit.get('engine_used')}")
+        print(f"   * Sondas Secretos:  {audit.get('forbidden_probes_tested')} probadas ({'100% excluidas' if audit.get('forbidden_probes_excluded') else 'FALLO DE EXCLUSIÓN'})")
+        print(f"   * Código Esencial:  {audit.get('required_probes_tested')} verificados ({'100% incluidos' if audit.get('required_probes_included') else 'FALLO DE INCLUSIÓN'})")
     print("-" * 68)
     print(" Comando Configurado:")
     print(f"   {metadata.get('command')}")
