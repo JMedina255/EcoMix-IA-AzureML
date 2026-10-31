@@ -332,3 +332,140 @@ def test_evaluate_model_rejects_altered_model_binary_under_strict_checksums(tmp_
         )
     assert "fallo de integridad criptográfica en modelo" in str(exc_info.value).lower()
 
+
+def test_evaluate_model_rejects_altered_train_dataset_under_strict_checksums(tmp_path):
+    """Comprueba que se rechaza la evaluación oficial si el hash del conjunto de entrenamiento fue alterado."""
+    from src.evaluate_model import TEST_DATA_PATH
+    if not TEST_DATA_PATH.exists():
+        pytest.skip("Dataset de prueba real no disponible")
+
+    altered_train = tmp_path / "altered_train.csv"
+    create_sample_csv(altered_train, n_rows=10)
+    model_path = tmp_path / "dummy.pkl"
+    reg = DummyRegressor(strategy="mean")
+    reg.fit([[1] * 8], [30.0])
+    joblib.dump(reg, model_path)
+
+    with pytest.raises(ValueError) as exc_info:
+        evaluate_model(
+            model_path=model_path,
+            job_name="wheat_cheese_4swj34tkjn",
+            test_path=TEST_DATA_PATH,
+            train_path=altered_train,
+            reports_dir=tmp_path / "reports",
+            strict_checksums=True
+        )
+    assert "fallo de integridad criptográfica en train set" in str(exc_info.value).lower()
+
+
+def test_evaluate_model_rejects_missing_train_dataset_under_strict_checksums(tmp_path):
+    """Comprueba que en modo estricto se exige obligatoriamente la presencia del dataset de entrenamiento."""
+    from src.evaluate_model import TEST_DATA_PATH
+    if not TEST_DATA_PATH.exists():
+        pytest.skip("Dataset de prueba real no disponible")
+
+    model_path = tmp_path / "dummy.pkl"
+    reg = DummyRegressor(strategy="mean")
+    reg.fit([[1] * 8], [30.0])
+    joblib.dump(reg, model_path)
+
+    with pytest.raises(FileNotFoundError) as exc_info:
+        evaluate_model(
+            model_path=model_path,
+            job_name="wheat_cheese_4swj34tkjn",
+            test_path=TEST_DATA_PATH,
+            train_path=None,
+            reports_dir=tmp_path / "reports",
+            strict_checksums=True
+        )
+    assert "conjunto de entrenamiento es obligatorio" in str(exc_info.value).lower()
+
+
+def test_evaluate_model_default_job_activates_strict_mode_by_default(tmp_path):
+    """Comprueba que el trabajo oficial activa el modo estricto por defecto cuando strict_checksums es None."""
+    altered_test = tmp_path / "altered_test.csv"
+    create_sample_csv(altered_test, n_rows=5)
+    model_path = tmp_path / "dummy.pkl"
+    reg = DummyRegressor(strategy="mean")
+    reg.fit([[1] * 8], [30.0])
+    joblib.dump(reg, model_path)
+
+    # Con DEFAULT_JOB_NAME y strict_checksums=None, debe fallar por hash de test alterado
+    with pytest.raises(ValueError) as exc_info:
+        evaluate_model(
+            model_path=model_path,
+            job_name="wheat_cheese_4swj34tkjn",
+            test_path=altered_test,
+            reports_dir=tmp_path / "reports",
+            strict_checksums=None,
+            allow_custom_data=False
+        )
+    assert "fallo de integridad criptográfica en test set" in str(exc_info.value).lower()
+
+
+def test_evaluate_model_allow_custom_data_bypasses_strict_mode(tmp_path):
+    """Comprueba que allow_custom_data permite evaluar datasets sintéticos en el job oficial."""
+    custom_test = tmp_path / "custom_test.csv"
+    create_sample_csv(custom_test, n_rows=10)
+    model_path = tmp_path / "dummy.pkl"
+    reg = DummyRegressor(strategy="mean")
+    reg.fit([[1] * 8], [30.0])
+    joblib.dump(reg, model_path)
+
+    report = evaluate_model(
+        model_path=model_path,
+        job_name="wheat_cheese_4swj34tkjn",
+        test_path=custom_test,
+        train_path=None,
+        reports_dir=tmp_path / "reports",
+        strict_checksums=None,
+        allow_custom_data=True
+    )
+    assert report["metadata"]["is_evaluation_complete"] is False
+    assert report["metadata"]["evaluation_status"] == "INCOMPLETE_MISSING_TRAIN_DATA"
+    assert report["metadata"]["integrity_verifications"]["strict_mode_enforced"] is False
+
+
+def test_resolve_model_binary_path_from_mlmodel_metadata(tmp_path):
+    """Comprueba que el nombre del binario se resuelve desde los metadatos de MLmodel y no arbitrariamente."""
+    from src.evaluate_model import resolve_model_binary_path
+    import yaml
+
+    model_dir = tmp_path / "custom_mlflow"
+    model_dir.mkdir()
+    meta = {
+        "flavors": {
+            "sklearn": {
+                "pickled_model": "specific_winner_weights.pkl",
+                "sklearn_version": "1.5.1"
+            }
+        }
+    }
+    with open(model_dir / "MLmodel", "w", encoding="utf-8") as f:
+        yaml.dump(meta, f)
+
+    bin_file = model_dir / "specific_winner_weights.pkl"
+    bin_file.write_bytes(b"binary_payload")
+
+    # Crear también otro pickle señuelo para verificar que no toma el primero arbitrariamente
+    (model_dir / "a_decoy.pkl").write_bytes(b"decoy")
+
+    target_bin, ml_dir, flavor, rel_name = resolve_model_binary_path(model_dir)
+    assert target_bin == bin_file
+    assert rel_name == "specific_winner_weights.pkl"
+    assert flavor == "mlflow"
+
+
+def test_resolve_model_binary_path_rejects_multiple_pickles_without_mlmodel(tmp_path):
+    """Comprueba que se rechaza un directorio con múltiples pickles si no existe un MLmodel rector."""
+    from src.evaluate_model import resolve_model_binary_path
+
+    model_dir = tmp_path / "ambiguous_models"
+    model_dir.mkdir()
+    (model_dir / "model_a.pkl").write_bytes(b"a")
+    (model_dir / "model_b.pkl").write_bytes(b"b")
+
+    with pytest.raises(ValueError) as exc_info:
+        resolve_model_binary_path(model_dir)
+    assert "múltiples binarios" in str(exc_info.value).lower()
+

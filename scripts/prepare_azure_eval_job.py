@@ -186,8 +186,8 @@ def validate_eval_job_specification(
 
     # 6. Command
     command = job_spec.get("command", "")
-    if "evaluate_model.py" not in command or "--evaluate" not in command:
-        errors.append(f"El comando no invoca 'evaluate_model.py --evaluate': '{command}'.")
+    if "evaluate_model.py" not in command or "--evaluate" not in command or "--strict-checksums" not in command:
+        errors.append(f"El comando debe invocar 'evaluate_model.py --evaluate --strict-checksums': '{command}'.")
     metadata["command"] = command
 
     # 7. Limits & Resources (Esquema oficial: limits.timeout en segundos)

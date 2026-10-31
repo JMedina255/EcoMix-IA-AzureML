@@ -52,6 +52,7 @@ DEFAULT_JOB_NAME = "wheat_cheese_4swj34tkjn"
 EXPECTED_WINNER_CHILD_RUN = "wheat_cheese_4swj34tkjn_11"
 EXPECTED_WINNER_MODEL_ASSET = "azureml:azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1"
 CANONICAL_TEST_SHA256 = "6484d9f1493ca19ada7c7ec32ebf0a7015bcb1773605b2de428ff1b5a889026b"
+CANONICAL_TRAIN_SHA256 = "f6a854e3a237a55675f06bd07bb8d299be86a13de8968edd55b5d12a82a498fe"
 CANONICAL_MODEL_PKL_SHA256 = "7eaa501c5eeb60135effb6b5861e736518ce969c47afd53727c2451083ff6388"
 
 EXPECTED_FEATURES = [
@@ -770,13 +771,16 @@ def compute_file_sha256(file_path: Path, normalize_newlines: bool = True) -> str
     return sha.hexdigest()
 
 
-def load_evaluated_model(model_path: Path) -> Tuple[Any, str, str, Optional[str]]:
+def resolve_model_binary_path(model_path: Path) -> Tuple[Path, Optional[Path], str, Optional[str]]:
     """
-    Carga el modelo para evaluación soportando:
-      1. Paquetes MLmodel empaquetados por MLflow (mlflow.sklearn.load_model).
-      2. Modelos serializados directamente con joblib / pickle.
+    Resuelve el artefacto binario específico del modelo antes de cualquier deserialización.
+    Si el modelo está en formato MLmodel, extrae la ruta del binario desde sus metadatos declarativos
+    (flavors.sklearn.pickled_model o flavors.python_function.model_path), sin seleccionar
+    arbitrariamente el primer .pkl disponible.
+    Si es un archivo serializado directo (.pkl, .joblib), valida su formato.
+    Si es un directorio sin MLmodel, exige unicidad del archivo binario.
 
-    Retorna: (modelo, nombre_tipo_modelo, flavor, sha256_archivo)
+    Retorna: (target_binary, mlmodel_dir, model_flavor, binary_relative_name)
     """
     p = Path(model_path).resolve()
     if not p.exists():
@@ -784,6 +788,7 @@ def load_evaluated_model(model_path: Path) -> Tuple[Any, str, str, Optional[str]
 
     mlmodel_dir: Optional[Path] = None
     target_binary: Optional[Path] = None
+    binary_rel_name: Optional[str] = None
 
     if p.is_dir():
         if (p / "MLmodel").exists():
@@ -793,26 +798,80 @@ def load_evaluated_model(model_path: Path) -> Tuple[Any, str, str, Optional[str]
             if sub_ml:
                 mlmodel_dir = sub_ml[0].parent
 
-        if mlmodel_dir is None:
-            pkls = list(p.rglob("*.pkl"))
-            if pkls:
-                target_binary = pkls[0]
-            else:
-                raise FileNotFoundError(f"No se encontró 'MLmodel' ni '*.pkl' en el directorio: {p}")
-        else:
-            pkl_candidates = list(mlmodel_dir.rglob("*.pkl"))
-            target_binary = pkl_candidates[0] if pkl_candidates else (mlmodel_dir / "MLmodel")
-    else:
-        # p es un archivo
-        if p.name == "MLmodel":
-            mlmodel_dir = p.parent
-            target_binary = p
-        elif (p.parent / "MLmodel").exists():
-            mlmodel_dir = p.parent
-            target_binary = p
-        else:
-            target_binary = p
+        if mlmodel_dir is not None:
+            # Resolver nombre del binario a partir de los metadatos de MLmodel
+            mlmodel_path = mlmodel_dir / "MLmodel"
+            try:
+                import yaml
+                with open(mlmodel_path, "r", encoding="utf-8") as f:
+                    mlmodel_meta = yaml.safe_load(f) or {}
+            except Exception as e:
+                raise ValueError(f"Error al parsear los metadatos de MLmodel en '{mlmodel_path}': {e}") from e
 
+            flavors = mlmodel_meta.get("flavors", {})
+            sklearn_flavor = flavors.get("sklearn", {})
+            pyfunc_flavor = flavors.get("python_function", {})
+
+            binary_rel_name = (
+                sklearn_flavor.get("pickled_model")
+                or sklearn_flavor.get("model_data")
+                or pyfunc_flavor.get("model_path")
+            )
+
+            if not binary_rel_name:
+                raise ValueError(
+                    f"El archivo '{mlmodel_path}' no declara un artefacto binario en sus flavors (sklearn/python_function)."
+                )
+
+            target_binary = mlmodel_dir / binary_rel_name
+            if not target_binary.exists() or not target_binary.is_file():
+                raise FileNotFoundError(
+                    f"El artefacto binario '{binary_rel_name}' declarado en '{mlmodel_path}' no existe en '{mlmodel_dir}'."
+                )
+            model_flavor = "mlflow"
+        else:
+            # Directorio sin MLmodel: buscar archivos binarios soportados
+            binaries = [f for f in p.iterdir() if f.is_file() and f.suffix.lower() in (".pkl", ".joblib")]
+            if not binaries:
+                # Búsqueda recursiva
+                binaries = [f for f in p.rglob("*.pkl")] + [f for f in p.rglob("*.joblib")]
+
+            if len(binaries) == 0:
+                raise FileNotFoundError(f"No se encontró archivo 'MLmodel' ni binarios '.pkl' / '.joblib' en: {p}")
+            elif len(binaries) > 1:
+                raise ValueError(
+                    f"Múltiples binarios encontrados en '{p}' ({[b.name for b in binaries]}) "
+                    "sin archivo MLmodel rector que defina la procedencia. No es posible resolver el modelo de forma determinística."
+                )
+            target_binary = binaries[0]
+            binary_rel_name = target_binary.name
+            model_flavor = "joblib"
+    else:
+        # p es un archivo directo
+        if p.name == "MLmodel":
+            return resolve_model_binary_path(p.parent)
+        elif p.suffix.lower() in (".pkl", ".joblib"):
+            target_binary = p
+            binary_rel_name = p.name
+            model_flavor = "joblib"
+            if (p.parent / "MLmodel").exists():
+                mlmodel_dir = p.parent
+                model_flavor = "mlflow"
+        else:
+            raise ValueError(f"Extensión de archivo de modelo no soportada: '{p.name}'. Se esperaba '.pkl' o '.joblib'.")
+
+    return target_binary, mlmodel_dir, model_flavor, binary_rel_name
+
+
+def load_evaluated_model(
+    model_path: Path,
+    target_binary: Path,
+    mlmodel_dir: Optional[Path]
+) -> Tuple[Any, str, str]:
+    """
+    Carga el modelo para evaluación en memoria únicamente DESPUÉS de haber
+    superado las comprobaciones previas de integridad criptográfica y resolución de binario.
+    """
     if mlmodel_dir is not None:
         model_flavor = "mlflow"
         print(f"[LOAD] Detectado modelo en formato MLflow en: {mlmodel_dir}")
@@ -840,9 +899,7 @@ def load_evaluated_model(model_path: Path) -> Tuple[Any, str, str, Optional[str]
             ) from err
 
     model_type_name = type(model).__name__
-    model_sha = compute_file_sha256(target_binary) if target_binary and target_binary.is_file() else None
-
-    return model, model_type_name, model_flavor, model_sha
+    return model, model_type_name, model_flavor
 
 
 def validate_test_dataset(
@@ -1015,35 +1072,95 @@ def evaluate_model(
     if val_report["overlaps"]["status"] == "INCOMPLETE_MISSING_TRAIN_DATA":
         print(f"  • Auditoría solapamiento train:  INCOMPLETA (Dataset de entrenamiento ausente)")
 
-    # Comprobación de integridad criptográfica previa al cómputo
-    is_strict = (
-        strict_checksums is True
-        or (strict_checksums is None and job_name == DEFAULT_JOB_NAME and not allow_custom_data)
+    # 2. Resolver artefacto binario y calcular hashes ANTES de cualquier deserialización
+    target_binary, mlmodel_dir, model_flavor, bin_rel_name = resolve_model_binary_path(model_path)
+    model_sha = compute_file_sha256(target_binary)
+    actual_test_sha = val_report.get("test_sha256")
+    actual_train_sha = val_report.get("train_sha256")
+
+    # Determinar si la validación estricta de integridad criptográfica es obligatoria
+    if strict_checksums is True:
+        is_strict = True
+    elif strict_checksums is False:
+        is_strict = False
+    else:
+        # Por defecto: estricto para el experimento oficial, salvo que se active explícitamente allow_custom_data
+        is_strict = (job_name == DEFAULT_JOB_NAME and not allow_custom_data)
+
+    test_status = "passed" if actual_test_sha == CANONICAL_TEST_SHA256 else ("failed" if is_strict else "skipped")
+    train_status = (
+        "passed" if (actual_train_sha == CANONICAL_TRAIN_SHA256)
+        else ("failed" if is_strict else ("incomplete" if actual_train_sha is None else "skipped"))
     )
+    model_status = "passed" if model_sha == CANONICAL_MODEL_PKL_SHA256 else ("failed" if is_strict else "skipped")
+    overlap_status = "passed" if val_report.get("is_train_overlap_audit_complete") else ("failed" if is_strict else "incomplete")
+
+    integrity_verifications = {
+        "strict_mode_enforced": is_strict,
+        "test_dataset": {
+            "expected_sha256": CANONICAL_TEST_SHA256,
+            "actual_sha256": actual_test_sha,
+            "status": test_status
+        },
+        "train_dataset": {
+            "expected_sha256": CANONICAL_TRAIN_SHA256,
+            "actual_sha256": actual_train_sha,
+            "status": train_status
+        },
+        "model_binary": {
+            "expected_sha256": CANONICAL_MODEL_PKL_SHA256,
+            "actual_sha256": model_sha,
+            "binary_name": target_binary.name,
+            "resolved_from_mlmodel": (mlmodel_dir is not None),
+            "status": model_status
+        },
+        "train_overlap_audit": {
+            "status": overlap_status
+        }
+    }
 
     if is_strict:
-        actual_test_sha = val_report.get("test_sha256")
         if actual_test_sha != CANONICAL_TEST_SHA256:
+            integrity_verifications["test_dataset"]["status"] = "failed"
             raise ValueError(
                 f"Fallo de integridad criptográfica en test set: SHA-256 obtenido ({actual_test_sha}) "
                 f"no coincide con el hash canónico esperado ({CANONICAL_TEST_SHA256})."
             )
 
-    # 2. Controlar recursos (Memoria y Tiempo) y Carga del modelo
+        if train_path is None or not Path(train_path).exists():
+            integrity_verifications["train_dataset"]["status"] = "failed"
+            integrity_verifications["train_overlap_audit"]["status"] = "failed"
+            raise FileNotFoundError(
+                f"El conjunto de entrenamiento es obligatorio en la evaluación oficial para validar solapamientos. "
+                f"Ruta no encontrada: '{train_path}'."
+            )
+
+        if actual_train_sha != CANONICAL_TRAIN_SHA256:
+            integrity_verifications["train_dataset"]["status"] = "failed"
+            raise ValueError(
+                f"Fallo de integridad criptográfica en train set: SHA-256 obtenido ({actual_train_sha}) "
+                f"no coincide con el hash canónico esperado ({CANONICAL_TRAIN_SHA256})."
+            )
+
+        if model_sha != CANONICAL_MODEL_PKL_SHA256:
+            integrity_verifications["model_binary"]["status"] = "failed"
+            raise ValueError(
+                f"Fallo de integridad criptográfica en modelo binario: SHA-256 obtenido ({model_sha}) "
+                f"no coincide con el hash canónico del modelo ganador ({CANONICAL_MODEL_PKL_SHA256}). "
+                "La deserialización ha sido bloqueada por seguridad previa comprobación."
+            )
+
+    # 3. Controlar recursos (Memoria y Tiempo) y Carga del modelo (DESPUÉS de validaciones de integridad)
     tracemalloc.start()
     t_start = time.perf_counter()
 
     try:
-        model, model_type_name, model_flavor, model_sha = load_evaluated_model(model_path)
+        model, model_type_name, model_flavor = load_evaluated_model(
+            model_path=model_path,
+            target_binary=target_binary,
+            mlmodel_dir=mlmodel_dir
+        )
         print(f"[INFO] Estimador cargado: {model_type_name} (Formato: {model_flavor})")
-
-        # Comprobación obligatoria del hash SHA-256 del modelo binario ganador
-        if is_strict and model_sha is not None:
-            if model_sha != CANONICAL_MODEL_PKL_SHA256:
-                raise ValueError(
-                    f"Fallo de integridad criptográfica en modelo: SHA-256 obtenido ({model_sha}) "
-                    f"no coincide con el hash canónico del modelo ganador ({CANONICAL_MODEL_PKL_SHA256})."
-                )
 
         # Entrada estricta: las 8 variables predictoras en el orden documentado
         X_test = df_test[EXPECTED_FEATURES].copy()
@@ -1166,10 +1283,20 @@ def evaluate_model(
             "model_sha256": model_sha,
             "model_type": model_type_name,
             "model_flavor": model_flavor,
-            "test_sha256": val_report.get("test_sha256"),
-            "train_sha256": val_report.get("train_sha256"),
+            "test_sha256": actual_test_sha,
+            "train_sha256": actual_train_sha,
+            "integrity_verifications": integrity_verifications,
             "integrity_audit_status": val_report["overlaps"]["status"],
-            "is_evaluation_complete": val_report.get("is_train_overlap_audit_complete", False),
+            "is_evaluation_complete": (
+                val_report.get("is_train_overlap_audit_complete", False)
+                and train_path is not None
+                and Path(train_path).exists()
+            ),
+            "evaluation_status": "COMPLETED" if (
+                val_report.get("is_train_overlap_audit_complete", False)
+                and train_path is not None
+                and Path(train_path).exists()
+            ) else "INCOMPLETE_MISSING_TRAIN_DATA",
             "data_isolation": {
                 "test_dataset": "data/processed/concrete_test.csv (206 observaciones, 20% partición determinística)",
                 "isolated_from_training": True,
@@ -1298,9 +1425,16 @@ def parse_args(args=None):
     )
     parser.add_argument(
         "--strict-checksums",
+        dest="strict_checksums",
         action="store_true",
-        default=False,
+        default=None,
         help="Exige verificación obligatoria de hashes SHA-256 canónicos antes de evaluar."
+    )
+    parser.add_argument(
+        "--no-strict-checksums",
+        dest="strict_checksums",
+        action="store_false",
+        help="Desactiva la verificación estricta de hashes SHA-256 para experimentación local."
     )
     parser.add_argument(
         "--allow-custom-data",

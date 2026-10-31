@@ -36,6 +36,7 @@ outputs:
 command: >-
   python src/evaluate_model.py
   --evaluate
+  --strict-checksums
   --model-path ${{inputs.model_dir}}
   --test-data ${{inputs.test_data}}
   --train-data ${{inputs.train_data}}
