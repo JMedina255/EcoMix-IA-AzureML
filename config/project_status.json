@@ -29,6 +29,18 @@
       "sklearn_version": "1.5.1",
       "mlflow_version": "2.15.1",
       "evidence_source": "models/.../python_env.yaml y MLmodel"
+    },
+    "compute_cluster_details": {
+      "name": "cpu-cluster-ecomix",
+      "type": "amlcompute",
+      "size": "Standard_DS3_v2",
+      "vcpus": 4,
+      "ram_gib": 14,
+      "min_instances": 0,
+      "max_instances": 1,
+      "idle_time_before_scale_down_seconds": 120.0,
+      "provisioning_state": "Succeeded",
+      "verification_method": "Azure ML SDK read-only get(cpu-cluster-ecomix)"
     }
   },
   "phases": {
@@ -72,7 +84,7 @@
       "name": "Evaluacion Independiente del Modelo",
       "status": "pending",
       "script": "src/evaluate_model.py --evaluate",
-      "evidence": "Fase 4.4-A verificada: firma del modelo (8 variables) y prueba controlada de carga. Evaluador MLflow implementado (src/evaluate_model.py). Job declarativo Azure ML preparado (config/azure_eval_job.yml). Carga local no viable en Windows por dependencias de Azure AutoML (azureml-training-tabular). Fase 4.4-B (ejecucion de evaluacion y reporte de metricas reales) pendiente de despacho autorizado en Azure ML."
+      "evidence": "Fase 4.4-A verificada: firma del modelo (8 variables) y prueba controlada de carga. Evaluador MLflow implementado (src/evaluate_model.py). Job declarativo Azure ML preparado y alineado al esquema oficial CommandJob con limits.timeout: 1800 (config/azure_eval_job.yml). Carga local no viable en Windows por dependencias de Azure AutoML (azureml-training-tabular). Fase 4.4-B (ejecucion de evaluacion y reporte de metricas reales) preparada para despacho autorizado en Azure ML con: az ml job create -f config/azure_eval_job.yml --resource-group EcomixIA --workspace-name ecomix-ia-ml."
     },
     "fase_4_5": {
       "name": "Generacion de Reportes y Trazabilidad",
@@ -116,7 +128,7 @@
     }
   ],
   "verified_tests": {
-    "total_tests": 61,
+    "total_tests": 68,
     "suite": "pytest",
     "test_files": [
       "tests/test_azure_eval_job.py",
@@ -127,6 +139,12 @@
       "tests/test_model_runtime.py",
       "tests/test_sync_state.py"
     ],
-    "status": "passing"
+    "status": "passing",
+    "ci_summary": {
+      "collected": 68,
+      "passed_ci": 65,
+      "skipped_ci": 3,
+      "skip_reason": "Los artefactos binarios entrenados (models/model.pkl) no se versionan en Git por gobernanza y control de peso del repositorio. Las 3 pruebas que requieren deserializar el artefacto real descargado se omiten limpiamente con pytest.skip(), mientras que las 65 pruebas de firma, contratos y modelos sintéticos pasan al 100%. En el equipo local con el modelo descargado, pasan las 68 pruebas al 100%."
+    }
   }
 }

@@ -185,11 +185,12 @@ Recomendado cuando el equipo local (por ejemplo, en Windows con Python 3.13) no 
    * **MLflow:** 2.15.1
    * **Imagen Curada Oficial:** `mcr.microsoft.com/azureml/curated/ai-ml-automl:41`
 2. **Especificación Declarativa del Job (`config/azure_eval_job.yml`):**
-   El job de evaluación independiente está preparado con límites estrictos de cómputo:
-   * **Cómputo:** `cpu-cluster-ecomix` (instancia única).
-   * **Tiempo límite:** 30 minutos (ejecución real estimada: ~2 a 4 minutos).
-   * **Costo estimado:** Menor a $0.02 USD (~0.08 S/.) consumido de los créditos de Azure.
-   * **Entradas:** Activo de modelo `azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1` y dataset `concrete_test.csv` (206 muestras, SHA-256 canónico: `6484d9f1493ca19ada7c7ec32ebf0a7015bcb1773605b2de428ff1b5a889026b`).
+   El job de evaluación independiente está preparado con límites estrictos de cómputo y validado contra el esquema oficial CommandJob de Azure ML:
+   * **Cómputo:** `cpu-cluster-ecomix` (SKU `Standard_DS3_v2`, 4 vCPUs, 14 GiB RAM, `min_instances=0`, `max_instances=1`).
+   * **Tiempo límite:** 1800 segundos / 30 minutos (definido en `limits.timeout: 1800`).
+   * **Tiempo de aprovisionamiento y ciclo de vida:** Al estar configurado con `min_instances=0`, el clúster arranca desde cero (*cold start*), lo que toma entre 2 y 5 minutos (asignación de VM, arranque y descarga de imagen curada). La evaluación toma entre 1 y 2 minutos, y el nodo permanece activo 2 minutos adicionales (`idle_time_before_scale_down=120.0s`) antes de apagarse.
+   * **Estimación económica realista:** A ~$0.293 USD/hora de `Standard_DS3_v2`, el tiempo total facturable ronda los 5 a 9 minutos, con un costo estimado de **$0.024 a $0.045 USD** (~0.09 a 0.17 S/.). Un costo menor a $0.02 USD no está garantizado debido al aprovisionamiento en frío de la máquina virtual.
+   * **Entradas:** Activo de modelo `azureml:azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1`, dataset de prueba `data/processed/concrete_test.csv` (206 muestras, SHA-256 canónico: `6484d9f1493ca19ada7c7ec32ebf0a7015bcb1773605b2de428ff1b5a889026b`) y dataset de entrenamiento `data/processed/concrete_train.csv` (824 muestras, SHA-256 canónico: `f6a854e3a237a55675f06bd07bb8d299be86a13de8968edd55b5d12a82a498fe`).
    * **Salidas:** Directorio `reports/` con `evaluation_wheat_cheese_4swj34tkjn.json` y el gráfico de correlación.
 3. **Validación Previa sin Consumo de Cómputo:**
    ```bash
@@ -198,7 +199,7 @@ Recomendado cuando el equipo local (por ejemplo, en Windows con Python 3.13) no 
 4. **Comando de Despacho en Azure ML:**
    *(Requiere autorización explícita y por escrito del usuario antes de ejecutarse)*:
    ```bash
-   az ml job create -f config/azure_eval_job.yml
+   az ml job create -f config/azure_eval_job.yml --resource-group EcomixIA --workspace-name ecomix-ia-ml
    ```
 5. **Uso de Docker Local (Opcional, solo en máquinas con Docker activo):**
    Si la máquina dispone de Docker:
@@ -215,13 +216,13 @@ Recomendado cuando el equipo local (por ejemplo, en Windows con Python 3.13) no 
 | **Inicialización** | `scripts/bootstrap.ps1` | Detecta entorno, crea `.venv`, instala dependencias | Solo con `-Install` |
 | **Diagnóstico** | `scripts/doctor.py` | Audita 4 sub-entornos (Dev, Azure, Eval, Infer) | No |
 | **Sincronización** | `scripts/sync_state.py` | Valida consistencia y renderiza `PROJECT_STATE.md` | No |
-| **Pruebas** | `python -m pytest tests/ -v` | Suite automatizada de pruebas y calidad (61 tests) | No |
+| **Pruebas** | `python -m pytest tests/ -v` | Suite de 68 pruebas automatizadas (65 pasan y 3 omitidas en CI por exclusión de binarios) | No |
 | **Descarga Modelo** | `src/evaluate_model.py --download` | Descarga selectiva del Model Asset ganador | Sí (Azure ML) |
 | **Inspección** | `src/evaluate_model.py --inspect` | Consulta telemetría del experimento sin descargar | Sí (Azure ML) |
 | **Evaluador Local/Nube** | `src/evaluate_model.py --evaluate` | Evalúa modelos MLflow/joblib contra test set | No (local) / Sí (Azure) |
 | **Verificación Carga** | `scripts/verify_model_load.py` | Separa validación de firma de deserialización | No |
-| **Job Azure ML** | `config/azure_eval_job.yml` | Especificación de Command Job en la nube | Sí (al despachar) |
-| **Validador de Job** | `scripts/prepare_azure_eval_job.py` | Valida estáticamente el YAML del Command Job | No |
+| **Job Azure ML** | `config/azure_eval_job.yml` | Especificación oficial de Command Job en la nube | Sí (al despachar) |
+| **Validador de Job** | `scripts/prepare_azure_eval_job.py` | Valida estáticamente el YAML contra esquema oficial y seguridad | No |
 
 ---
 
