@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from src.inference.model_loader import (
+from .model_loader import (
     ModelLoader,
     ModelInferenceError,
     ModelNotFoundError,
@@ -24,7 +24,7 @@ from src.inference.model_loader import (
     OFFICIAL_RUN_ID,
     OFFICIAL_ALGORITHM,
 )
-from src.inference.schemas import (
+from .schemas import (
     ConcreteMixDesign,
     PredictionRequest,
     PredictionResponse,
@@ -33,7 +33,7 @@ from src.inference.schemas import (
     StructuredWarning,
     ModelMetadata,
 )
-from src.inference.validator import (
+from .validator import (
     DomainValidationError,
     validate_mix_design,
     validate_or_raise,

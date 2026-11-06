@@ -4,7 +4,7 @@ Provee esquemas tipados Pydantic v2, validación de dominio físico y experiment
 cálculos determinísticos de ratios de mezcla y serialización JSON para ASP.NET MVC 5.
 """
 
-from src.inference.model_loader import (
+from .model_loader import (
     ModelLoader,
     ModelInferenceError,
     ModelNotFoundError,
@@ -14,7 +14,7 @@ from src.inference.model_loader import (
     OFFICIAL_RUN_ID,
     OFFICIAL_ALGORITHM,
 )
-from src.inference.engine import (
+from .engine import (
     InferenceEngine,
     get_engine,
     initialize_engine,
@@ -23,7 +23,7 @@ from src.inference.engine import (
     FEATURE_COLUMNS,
     DEFAULT_AGES,
 )
-from src.inference.schemas import (
+from .schemas import (
     ConcreteMixDesign,
     PredictionRequest,
     PredictionResponse,
@@ -34,7 +34,7 @@ from src.inference.schemas import (
     InvalidFieldDetail,
     ProblemDetails,
 )
-from src.inference.validator import (
+from .validator import (
     ValidationResult,
     DomainValidationError,
     validate_mix_design,

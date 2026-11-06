@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 from pydantic import ValidationError
 
-from src.inference.schemas import (
+from .schemas import (
     ConcreteMixDesign,
     InvalidFieldDetail,
     MixRatios,
