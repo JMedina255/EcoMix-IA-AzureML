@@ -1,4 +1,4 @@
-# Lista de Verificación y Plan de Contingencia — EcoMix IA (Fase 6.4)
+# Lista de Verificación y Plan de Contingencia — EcoMix IA (Fase 6.4-R)
 ## Protocolo Operativo para la Demostración en Vivo ante el Jurado
 
 **Objetivo:** Garantizar una ejecución técnica impecable de la sustentación de 3 minutos, previendo contingencias de red, arranque en frío de la nube y desacoplamiento de entorno.
@@ -52,11 +52,11 @@
 | Tiempo | Paso del Operador | Discurso del Orador | Resultado Esperado |
 |:---:|---|---|---|
 | **0:55** | Clic en preset **«Canónica (280 kg cto)»** | Explica la mezcla convencional de control ($280\text{ kg}$ cto, $a/c = 0.64$). | Formulario poblado instantáneamente. |
-| **1:05** | Clic en **«Predecir Resistencia»** | Señala el despacho seguro y la comunicación de servidor a servidor. | Tarjetas: **21.96 MPa** (7d), **31.15 MPa** (28d), 0 advertencias ACI. |
-| **1:35** | Clic en preset **«Ecológica (54.5% SCM)»** | Introduce el Reto 2 de Yura: sustitución del 46.4% de clínker por escoria y ceniza. | Formulario con $150\text{ kg}$ cto, $100\text{ kg}$ escoria, $80\text{ kg}$ ceniza. |
-| **1:45** | Clic en **«Predecir Resistencia»** | Destaca la velocidad en caliente (~139 ms) y superación de los 25 MPa estructurales. | Tarjetas: **25.98 MPa** (7d), **33.61 MPa** (28d), 2 advertencias ACI ámbar. |
-| **2:05** | Señala las advertencias ACI | Explica la importancia de extender el curado húmedo por cinética puzolánica. | Tarjetas explicativas de durabilidad y curado visibles. |
-| **2:15** | Clic en preset **«Inválida»** y Clic en **«Predecir»** | Explica la doble barrera: ModelState local vs HTTP 422 ProblemDetails en Azure. | Banner rojo estructurado; la aplicación sigue operando sin caídas. |
+| **1:05** | Clic en **«Predecir Resistencia»** | Señala el despacho seguro y la comunicación de servidor a servidor. | Tarjetas: **21.96 MPa** (7d), **31.15 MPa** (28d), 0 advertencias. |
+| **1:35** | Clic en preset **«Ecológica (54.5% SCM)»** | Introduce la exploración de sostenibilidad del Reto 2 de Yura: sustitución del 46.4% de clínker (aclarando que la optimización multiobjetivo de costos y huella de carbono se desarrollará en la Fase 7). | Formulario con $150\text{ kg}$ cto, $100\text{ kg}$ escoria, $80\text{ kg}$ ceniza. |
+| **1:45** | Clic en **«Predecir Resistencia»** | Destaca la velocidad en caliente (~139 ms) y superación exploratoria de los 25 MPa estructurales. | Tarjetas: **25.98 MPa** (7d), **33.61 MPa** (28d), 2 reglas informativas ACI. |
+| **2:05** | Señala las advertencias ACI | Explica que son reglas técnicas informativas para guiar el curado húmedo puzolánico, sin constituir certificación ni aprobación estructural. | Tarjetas explicativas de durabilidad y curado visibles. |
+| **2:15** | Clic en preset **«Inválida»** y Clic en **«Predecir»** | Explica la doble barrera diferenciada: intercepción local sintáctica en C# (ModelState, ~8 ms) vs rechazo físico remoto en Azure (HTTP 422 ProblemDetails, ~163 ms). | Banner rojo estructurado; la aplicación sigue operando sin caídas. |
 
 ---
 

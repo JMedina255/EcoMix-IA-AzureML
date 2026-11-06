@@ -1,4 +1,4 @@
-# Guion de Exposición Técnica y Demostración en Vivo — EcoMix IA
+# Guion de Exposición Técnica y Demostración en Vivo — EcoMix IA (Fase 6.4-R)
 ## Sustentación de Avance: Integración Web ASP.NET MVC 5 y Machine Learning en Azure
 
 **Duración Total:** 3 minutos exactos (180 segundos)  
@@ -22,7 +22,7 @@ sequenceDiagram
     participant ML as VotingEnsemble (670 KB)
 
     %% BLOQUE 1: CASO CANONICO
-    Note over Ing,Browser: [0:55 - 1:35] Caso 1: Mezcla Convencional
+    Note over Ing,Browser: [0:55 - 1:35] Caso 1: Mezcla Convencional (Canónica)
     Ing->>Browser: 1. Presiona preset "Canónica (280 kg cto)"
     Ing->>Browser: 2. Clic en "Predecir Resistencia"
     Browser->>MVC: 3. POST AJAX con __RequestVerificationToken
@@ -37,17 +37,17 @@ sequenceDiagram
     Browser-->>Ing: 10. Despliega métricas, a/c=0.64 y telemetría cloud
 
     %% BLOQUE 2: CASO ECOLOGICO
-    Note over Ing,Browser: [1:35 - 2:15] Caso 2: Mezcla Ecológica (Reto Yura)
+    Note over Ing,Browser: [1:35 - 2:15] Caso 2: Mezcla Ecológica (Exploración SCM)
     Ing->>Browser: 11. Presiona preset "Ecológica (54.5% SCM)"
     Ing->>Browser: 12. Clic en "Predecir Resistencia"
     Browser->>MVC: 13. POST AJAX
     MVC->>LocalVal: 14. Valida rangos sintácticos (OK)
     MVC->>ACA: 15. Inferencia en caliente (Roundtrip total: 139 ms)
-    ACA->>ML: 16. Evalúa matriz puzolánica + reglas ACI PRC-211.1-22
-    ML-->>ACA: 17. f'c 7d: 25.98 MPa, 28d: 33.61 MPa + 2 Warnings
+    ACA->>ML: 16. Evalúa matriz puzolánica + reglas informativas ACI PRC-211
+    ML-->>ACA: 17. f'c 7d: 25.98 MPa, 28d: 33.61 MPa + 2 Reglas Informativas
     ACA-->>MVC: 18. HTTP 200 OK
-    MVC-->>Browser: 19. Retorna ViewModel con alertas técnicas
-    Browser-->>Ing: 20. Destaca viabilidad (33.61 MPa) y alertas de curado húmedo
+    MVC-->>Browser: 19. Retorna ViewModel con alertas preventivas
+    Browser-->>Ing: 20. Destaca viabilidad (33.61 MPa) y alertas informativas de curado
 
     %% BLOQUE 3: DOBLE VALIDACION Y ERRORES
     Note over Ing,Browser: [2:15 - 2:40] Caso 3: Manejo de Errores y Resiliencia
@@ -76,7 +76,7 @@ sequenceDiagram
 - **Diapositivas:** 1 y 2
 - **Acción en pantalla:** El operador proyecta la diapositiva 1 y luego pasa a la diapositiva 2 mostrando el diagrama arquitectónico.
 - **Voz del Orador:**
-  > *"Buenos días, miembros del jurado. En el marco del Reto 2 de Yura S.A., presentamos la plataforma EcoMix IA. Nuestro propósito es optimizar dosificaciones de concreto ecológico minimizando costo y huella de carbono mediante sustitución de clínker por puzolana y escoria, asegurando la resistencia requerida.*
+  > *"Buenos días, miembros del jurado. En el marco del Reto 2 de Yura S.A., presentamos la plataforma EcoMix IA. Nuestro alcance en esta fase comprende la inferencia en tiempo real de resistencia a compresión y el análisis exploratorio de dosificaciones con sustitución puzolánica y de escoria, sentando las bases analíticas previas al optimizador multiobjetivo de costos y emisiones que desarrollaremos en la siguiente etapa.*
   > 
   > *Arquitectónicamente, diseñamos una integración híbrida desacoplada: el sistema empresarial opera sobre ASP.NET MVC 5 en .NET Framework 4.7.2, mientras que el motor de inferencia corre sobre un contenedor Linux especializado en Microsoft Azure Container Apps. La comunicación es estrictamente de servidor a servidor vía HTTPS, garantizando que ninguna clave criptográfica sea expuesta al navegador del cliente."*
 
@@ -86,7 +86,7 @@ sequenceDiagram
 - **Diapositivas:** 3 y 4
 - **Acción en pantalla:** El operador muestra la diapositiva 3 con las métricas del VotingEnsemble y la diapositiva 4 con la infraestructura de Azure.
 - **Voz del Orador:**
-  > *"El corazón predictivo es un modelo VotingEnsemble entrenado con AutoML sobre 1,030 ensayos del repositorio UCI 165. En su conjunto de prueba independiente de 206 observaciones, alcanza un coeficiente de determinación $R^2$ de 0.912 y un error medio de solo 3.48 MPa.*
+  > *"El corazón predictivo es un modelo VotingEnsemble entrenado con AutoML sobre 1,030 ensayos del repositorio UCI 165. En su conjunto de prueba independiente de 206 observaciones, alcanza un coeficiente de determinación $R^2$ de 0.9121, un error cuadrático medio RMSE de 4.7592 MPa y un error absoluto medio (MAE) de solo 3.2822 MPa.*
   > 
   > *Este modelo de 670 KB se encuentra publicado en la región Chile Central. Para optimizar el crédito estudiantil, configuramos escalado a cero réplicas: cuando el sistema está inactivo, el consumo de cómputo es de exactamente cero dólares por hora. El único costo fijo es el almacenamiento básico de la imagen en Azure Container Registry, que representa aproximadamente cinco dólares mensuales."*
 
@@ -98,27 +98,27 @@ sequenceDiagram
 - **Voz del Orador:**
   > *"Pasamos a la demostración en vivo. En el simulador, seleccionamos una mezcla de referencia convencional: 280 kg de cemento por metro cúbico, 180 litros de agua y cero sustitución ecológica, con una relación agua/cemento de 0.64.*
   > 
-  > *Al solicitar la predicción, la aplicación despacha la petición AJAX protegida con CSRF. El servidor C# consulta nuestro endpoint en Chile Central y el VotingEnsemble devuelve en pantalla: 21.96 MPa a los 7 días y 31.15 MPa a los 28 días. Al ser una proporción balanceada tradicional, el motor analítico no dispara advertencias del código ACI."*
+  > *Al solicitar la predicción, la aplicación despacha la petición AJAX protegida con CSRF. El servidor C# consulta nuestro endpoint en Chile Central y el VotingEnsemble devuelve en pantalla: 21.96 MPa a los 7 días y 31.15 MPa a los 28 días. Al ser una proporción balanceada tradicional, el motor analítico no dispara advertencias del validador técnico."*
 
 ---
 
-### Bloque 4: Demostración en Vivo — Caso 2: Mezcla Ecológica y Reglas ACI (1:35 – 2:15)
+### Bloque 4: Demostración en Vivo — Caso 2: Mezcla Ecológica y Reglas Informativas (1:35 – 2:15)
 - **Diapositiva:** 6 / Continuación en el Simulador Web.
 - **Acción en pantalla:** El operador pulsa el botón del preset **«Ecológica (54.5% SCM)»** y hace clic en **«Predecir Resistencia con EcoMix IA»**.
 - **Voz del Orador:**
-  > *"Ahora abordamos el núcleo del Reto 2 de Yura S.A. Pulsamos el preset 'Ecológica'. Reducimos el cemento a 150 kg por metro cúbico e introducemos 100 kg de escoria y 80 kg de ceniza volante, alcanzando un 54.5% de sustitución de clínker.*
+  > *"Ahora abordamos la exploración de sostenibilidad del Reto 2 de Yura S.A. Pulsamos el preset 'Ecológica'. Reducimos el cemento a 150 kg por metro cúbico e introducemos 100 kg de escoria y 80 kg de ceniza volante, alcanzando un 54.55% de sustitución de clínker.*
   > 
-  > *Observen la inmediatez: con el contenedor en caliente, la inferencia toma apenas 139 milisegundos. El modelo estima 25.98 MPa a 7 días y 33.61 MPa a 28 días, demostrando la viabilidad técnica de alcanzar la resistencia objetivo de 25 MPa con una drástica reducción de emisiones.*
+  > *Observen la inmediatez: con el contenedor en caliente, la inferencia toma apenas 139 milisegundos. El modelo estima 25.98 MPa a 7 días y 33.61 MPa a 28 días, demostrando la viabilidad técnica exploratoria de alcanzar la resistencia objetivo de 25 MPa con una drástica reducción de emisiones. Aclaramos que la optimización formal simultánea de costo económico y huella de carbono es la meta de la Fase 7.*
   > 
-  > *Crucialmente, el sistema no es una caja negra: activa de inmediato dos advertencias normativas del código ACI PRC-211, advirtiendo al constructor que, debido a la cinética de hidratación lenta de las puzolanas, es imperativo prolongar el curado húmedo."*
+  > *Crucialmente, el validador emite dos reglas técnicas informativas basadas en el código ACI PRC-211, advirtiendo al constructor que la cinética puzolánica requiere prolongar el curado húmedo. Estas alertas son orientaciones preventivas y no constituyen certificación ACI ni aprobación estructural."*
 
 ---
 
-### Bloque 5: Demostración Caso 3 — Resiliencia y Doble Validación (2:15 – 2:40)
+### Bloque 5: Demostración Caso 3 — Resiliencia y Doble Validación de Errores (2:15 – 2:40)
 - **Diapositiva:** 7 / Continuación en el Simulador Web.
 - **Acción en pantalla:** El operador pulsa el preset **«Inválida»** y presiona **«Predecir Resistencia con EcoMix IA»**, mostrando la alerta en pantalla.
 - **Voz del Orador:**
-  > *"La robustez es fundamental. Diseñamos una defensa en dos niveles. Si un usuario ingresa valores sintácticamente absurdos, como un peso negativo, el validador local de ASP.NET lo intercepta en 8 milisegundos sin consumir saldo en Azure.*
+  > *"La robustez es fundamental. Diseñamos una defensa en dos niveles claramente separados: Si un usuario ingresa valores sintácticamente absurdos, como un peso negativo, el validador local de ASP.NET lo intercepta en 8 milisegundos sin consumir ancho de banda ni saldo en Azure.*
   > 
   > *Si los valores superan la validación sintáctica pero violan relaciones físicas admisibles de la tecnología del concreto, el microservicio FastAPI en Azure responde con código HTTP 422 bajo el estándar RFC 7807 ProblemDetails. Como se aprecia, la interfaz web gestiona el error de manera controlada y descriptiva, garantizando alta disponibilidad."*
 
@@ -128,7 +128,7 @@ sequenceDiagram
 - **Diapositiva:** 8
 - **Acción en pantalla:** El operador regresa a la presentación proyectando la diapositiva final.
 - **Voz del Orador:**
-  > *"Para concluir, enfatizamos nuestro principio de gobernanza técnica: las predicciones de EcoMix IA representan estimaciones estadísticas de alta fidelidad para la exploración y optimización de mezclas; de ninguna manera constituyen una certificación estructural ni reemplazan los ensayos destructivos obligatorios de rotura de probetas conforme a la Norma Técnica Peruana 339.034 y ASTM C39 bajo la firma del ingeniero calculista.*
+  > *"Para concluir, enfatizamos nuestro principio de gobernanza técnica: las predicciones de EcoMix IA representan estimaciones estadísticas de soporte para la toma de decisiones ($R^2=0.9121$, MAE de 3.28 MPa); de ninguna manera constituyen una certificación estructural ni reemplazan los ensayos destructivos obligatorios de rotura de probetas conforme a la Norma Técnica Peruana 339.034 y ASTM C39 bajo la firma del ingeniero calculista.*
   > 
   > *EcoMix IA une sostenibilidad, rigor normativo e inteligencia artificial moderna en Azure. Quedamos a su disposición para sus preguntas."*
 
@@ -138,7 +138,9 @@ sequenceDiagram
 
 | Regla de Oro | Lo que NUNCA debe decirse | Lo que DEBE decirse |
 |---|---|---|
-| **Responsabilidad Estructural** | ❌ *"El software certifica que la estructura no se caerá."* | ✔️ *"El modelo proporciona una estimación predictiva sustentada ($R^2=0.912$) como soporte a la toma de decisiones del ingeniero."* |
+| **Alcance del Reto 2** | ❌ *"Con este simulador ya cumplimos al 100% todo el Reto 2 de Yura."* | ✔️ *"Demostramos el núcleo de inferencia de resistencia y exploración de SCM; la optimización multiobjetivo automatizada de costo y carbono está programada para la Fase 7."* |
+| **Responsabilidad Estructural** | ❌ *"El software certifica que la estructura no se caerá."* | ✔️ *"El modelo proporciona una estimación predictiva sustentada ($R^2=0.9121$, $\text{MAE}=3.2822\text{ MPa}$) como soporte a la toma de decisiones del ingeniero."* |
+| **Reglas ACI** | ❌ *"Las alertas son una certificación oficial de ACI."* | ✔️ *"Las alertas son reglas técnicas informativas y preventivas basadas en el código ACI PRC-211.1-22 para guiar el curado, sin constituir certificación ni aprobación estructural."* |
 | **Norma Técnica** | ❌ *"Con este software ya no se necesita romper probetas en laboratorio."* | ✔️ *"El sistema guía la dosificación óptima, pero los ensayos físicos de rotura de probetas según NTP 339.034 siguen siendo obligatorios."* |
 | **Costos en Azure** | ❌ *"La nube de Azure no nos cuesta absolutamente nada."* | ✔️ *"El cómputo en Container Apps escala a cero réplicas (\$0.00 en reposo), requiriendo únicamente el costo fijo de almacenamiento en ACR (~5 USD/mes)."* |
 | **Tiempos de Respuesta** | ❌ *"Siempre responde en menos de 100 milisegundos."* | ✔️ *"En caliente responde en 130–150 ms; si el clúster despierta desde cero réplicas, el arranque en frío toma aproximadamente 8.4 segundos."* |
