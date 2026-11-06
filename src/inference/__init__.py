@@ -4,6 +4,25 @@ Provee esquemas tipados Pydantic v2, validación de dominio físico y experiment
 cálculos determinísticos de ratios de mezcla y serialización JSON para ASP.NET MVC 5.
 """
 
+from src.inference.model_loader import (
+    ModelLoader,
+    ModelInferenceError,
+    ModelNotFoundError,
+    ModelIntegrityError,
+    IncompatibleRuntimeError,
+    OFFICIAL_MODEL_SHA256,
+    OFFICIAL_RUN_ID,
+    OFFICIAL_ALGORITHM,
+)
+from src.inference.engine import (
+    InferenceEngine,
+    get_engine,
+    initialize_engine,
+    predict_concrete_strength,
+    get_model_status,
+    FEATURE_COLUMNS,
+    DEFAULT_AGES,
+)
 from src.inference.schemas import (
     ConcreteMixDesign,
     PredictionRequest,
@@ -42,4 +61,19 @@ __all__ = [
     "compute_mix_ratios",
     "UCI165_BOUNDS",
     "PHYSICAL_BOUNDS",
+    "ModelLoader",
+    "ModelInferenceError",
+    "ModelNotFoundError",
+    "ModelIntegrityError",
+    "IncompatibleRuntimeError",
+    "OFFICIAL_MODEL_SHA256",
+    "OFFICIAL_RUN_ID",
+    "OFFICIAL_ALGORITHM",
+    "InferenceEngine",
+    "get_engine",
+    "initialize_engine",
+    "predict_concrete_strength",
+    "get_model_status",
+    "FEATURE_COLUMNS",
+    "DEFAULT_AGES",
 ]
