@@ -204,3 +204,8 @@ PREPARADO PARA VALIDACIÓN CONTROLADA EN AZURE
 3. La limitación del runtime binario local (Python 3.13 en Windows vs. Linux Python 3.10 / `azureml-train-automl-runtime`) fue identificada y aislada limpiamente sin sustituciones ficticias.
 4. El script de ejecución reproducible (`scripts/validate_real_inference.py`) y la especificación del Command Job (`config/azure_inference_job.yml`) están completamente listos y validados estáticamente por el SDK de Azure ML.
 5. El sistema queda en espera de la autorización explícita del usuario para ejecutar el job de validación en Azure ML si así se decide.
+
+---
+
+> [!NOTE]
+> **Actualización Fase 5.4-B:** La validación experimental fue ejecutada exitosamente mediante el job de Azure ML `serene_spinach_sn7khxvkq7`, alcanzando el veredicto terminal **`VALIDADO CON MODELO REAL`** con paridad numérica idéntica ($\Delta = 0.000000\text{ MPa}$). Consultar el reporte consolidado en [`docs/PHASE_5_4_B_REAL_INFERENCE_VALIDATION_REPORT.md`](PHASE_5_4_B_REAL_INFERENCE_VALIDATION_REPORT.md).
