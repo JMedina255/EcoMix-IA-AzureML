@@ -1,8 +1,9 @@
 # ==============================================================================
 # EcoMix IA — Especificación Declarativa para Azure Container Apps
 # Arquitectura: Microservicio FastAPI (Python 3.10.19) + VotingEnsemble Real
+# Autenticación de Registro: Managed Identity (UserAssigned, sin admin-user)
 # Nota: Esta plantilla documenta la configuración objetivo para despliegue
-#       futuro (Fase 5.6-B), sin aprovisionar recursos facturables en Azure.
+#       futuro en Etapa 2, sin aprovisionar recursos facturables en Azure.
 # ==============================================================================
 
 apiVersion: apps/v1
@@ -15,8 +16,12 @@ metadata:
     environment: production
     challenge: Reto-2-Yura
     managed-by: MLOps-DevSecOps
+identity:
+  type: UserAssigned
+  userAssignedIdentities:
+    /subscriptions/{SUBSCRIPTION_ID}/resourceGroups/EcomixIA/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-ecomix-aca: {}
 spec:
-  managedEnvironmentId: /subscriptions/{SUBSCRIPTION_ID}/resourceGroups/rg-ecomix-ia/providers/Microsoft.App/managedEnvironments/me-ecomix-prod
+  managedEnvironmentId: /subscriptions/{SUBSCRIPTION_ID}/resourceGroups/EcomixIA/providers/Microsoft.App/managedEnvironments/me-ecomix-prod
   configuration:
     ingress:
       external: true
@@ -26,14 +31,20 @@ spec:
       traffic:
         - latestRevision: true
           weight: 100
+    registries:
+      # Acceso seguro mediante Managed Identity (rol AcrPull) sin cuenta de administrador
+      - server: crecomixprod.azurecr.io
+        identity: /subscriptions/{SUBSCRIPTION_ID}/resourceGroups/EcomixIA/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-ecomix-aca
     secrets:
       - name: ecomix-api-key-secret
-        keyVaultUrl: https://kv-ecomix-prod.vault.azure.net/secrets/ECOMIX-API-KEY
-        identity: system
+        # En producción se enlaza a Azure Key Vault; en pruebas se pasa vía variable/secret sin versionar
+        # keyVaultUrl: https://kv-ecomix-prod.vault.azure.net/secrets/ECOMIX-API-KEY
+        # identity: /subscriptions/{SUBSCRIPTION_ID}/resourceGroups/EcomixIA/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-ecomix-aca
+        value: "<GENERATED_API_KEY>"
   template:
     containers:
       - name: ecomix-ml-api
-        image: cr-ecomix-prod.azurecr.io/ecomix-ml-inference:1.0.0
+        image: crecomixprod.azurecr.io/ecomix-ml-inference:1.0.0
         resources:
           cpu: 1.0
           memory: 2.0Gi
@@ -45,7 +56,7 @@ spec:
           - name: ECOMIX_HOST
             value: 0.0.0.0
           - name: ECOMIX_MODEL_PATH
-            value: /app/models/model_asset_v1/azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674/mlflow-model
+            value: /app/models
           - name: ECOMIX_API_KEY
             secretRef: ecomix-api-key-secret
         probes:

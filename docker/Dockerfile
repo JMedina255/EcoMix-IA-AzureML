@@ -30,7 +30,7 @@ COPY docker/requirements-inference.txt /app/requirements-inference.txt
 RUN /opt/miniconda/envs/amlenv/bin/pip install --no-cache-dir -r /app/requirements-inference.txt
 
 # 2. Copiar código fuente y configuración declarativa del proyecto
-# Nota: docker/.dockerignore excluye secretos, datasets brutos, caches y entornos virtuales
+# Nota: .dockerignore (y docker/Dockerfile.dockerignore) excluyen secretos, datasets brutos, caches y entornos virtuales
 COPY src/ /app/src/
 COPY config/ /app/config/
 

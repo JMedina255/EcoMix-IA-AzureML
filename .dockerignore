@@ -1,0 +1,66 @@
+# ==============================================================================
+# EcoMix IA — Reglas de exclusión para Docker y Azure Container Registry (ACR)
+# Ubicación: Raíz del repositorio (.dockerignore)
+# Afecta a: az acr build --file docker/Dockerfile .
+# ==============================================================================
+
+# Control de versiones Git
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Secretos y credenciales privadas (CRÍTICO)
+config.json
+.env
+.env.*
+*.key
+*.token
+*.pem
+*.secret
+*.pfx
+
+# Entornos virtuales locales
+.venv/
+venv/
+env/
+ENV/
+virtualenv/
+
+# Modelos binarios locales: excluir todos EXCEPTO el artefacto MLflow oficial certificado (670 KB)
+models/*
+!models/wheat_cheese_4swj34tkjn/
+!models/wheat_cheese_4swj34tkjn/model_asset_v1/
+!models/wheat_cheese_4swj34tkjn/model_asset_v1/azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674/
+!models/wheat_cheese_4swj34tkjn/model_asset_v1/azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674/mlflow-model/
+!models/wheat_cheese_4swj34tkjn/model_asset_v1/azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674/mlflow-model/**
+
+# Datos brutos y de procesamiento (no requeridos en inferencia de producción)
+data/
+
+# Pruebas automatizadas, scripts de desarrollo y CI
+tests/
+scripts/
+
+# Caches y archivos temporales de Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.cache/
+
+# Logs, reportes y métricas de experimentación
+*.log
+logs/
+reports/
+
+# Documentación de ingeniería y artefactos de IDE
+docs/
+.gemini/
+.vscode/
+.idea/
+*.md
+!README.md
