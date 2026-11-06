@@ -11,9 +11,9 @@
 - **Identificador del Proyecto:** `ecomix-ia-ml`
 - **Repositorio:** `JMedina255/EcoMix-IA-AzureML`
 - **Rama Principal:** `main`
-- **Fase Actual:** `4.3 — Descarga selectiva de modelo ganador`
-- **Próximo Hito Autorizado:** `4.4 - Evaluacion controlada e independiente del modelo ganador`
-- **Última Validación Registrada:** `2026-10-30` (Origen: *Azure ML Studio & Workspace Telemetry*)
+- **Fase Actual:** `4.5 — Generacion de Reportes y Trazabilidad`
+- **Próximo Hito Autorizado:** `Fase 5 — Servicio de Inferencia ML (7d y 28d + Ahorro CO2)`
+- **Última Validación Registrada:** `2026-11-06` (Origen: *Azure ML Studio & Workspace Telemetry (Job stoic_pot_x25ht98nv7)*)
 
 ---
 
@@ -27,8 +27,8 @@
 | **4.1** | Inspeccion Segura del Experimento | ✅ Completado | `src/evaluate_model.py --inspect` | Normalizacion de estado canonico y trazabilidad desglosada del experimento |
 | **4.2** | Control de Recursos y Validacion de Dataset de Prueba | ✅ Completado | `src/evaluate_model.py (validaciones)` | Validacion de 206 muestras de prueba, deteccion de solapamiento y metricas robustas |
 | **4.3** | Descarga Selectiva de Artefactos | ✅ Completado | `src/evaluate_model.py --download` | Descarga directa asegurada mediante Model Asset verificado sin all=True |
-| **4.4** | Evaluacion Independiente del Modelo | 🟡 Pendiente | `src/evaluate_model.py --evaluate` | Fase 4.4-A verificada: firma del modelo (8 variables) y prueba controlada de carga. Evaluador MLflow implementado (src/evaluate_model.py). Job declarativo Azure ML preparado y alineado al esquema oficial CommandJob con limits.timeout: 1800 (config/azure_eval_job.yml). Carga local no viable en Windows por dependencias de Azure AutoML (azureml-training-tabular). Fase 4.4-B (ejecucion de evaluacion y reporte de metricas reales) preparada para despacho autorizado en Azure ML con: az ml job create -f config/azure_eval_job.yml --resource-group EcomixIA --workspace-name ecomix-ia-ml. |
-| **4.5** | Generacion de Reportes y Trazabilidad | 🟡 Pendiente | `src/evaluate_model.py (reporting)` | Pendiente de consolidacion de metricas en reports/ |
+| **4.4** | Evaluacion Independiente del Modelo | ✅ Completado | `src/evaluate_model.py --evaluate` | Job stoic_pot_x25ht98nv7 completado exitosamente en Azure ML (2m 35s). 206 observaciones evaluadas (100% validas): R2 0.9121, RMSE 4.7592 MPa, MAE 3.2822 MPa, NRMSE 0.0673. En subconjunto sin solapamiento (195 muestras): R2 0.9174, RMSE 4.587 MPa. Desglose: 7d (R2 0.8841, RMSE 5.1725 MPa), 28d (R2 0.8235, RMSE 5.5930 MPa). |
+| **4.5** | Generacion de Reportes y Trazabilidad | ✅ Completado | `src/evaluate_model.py (reporting)` | Reporte JSON oficial 'reports/evaluation_wheat_cheese_4swj34tkjn.json' (9,928 bytes) y grafico de correlacion auditados y consolidados. Documento de evaluacion tecnica generado en 'docs/EVALUATION_REPORT.md', especificacion de inferencia para Fase 5 preparada y estado del repositorio sincronizado. |
 | **5** | Modulo de Inferencia EcoMix (7d y 28d + Ahorro CO2) | 🟡 Pendiente | `src/inference.py` | No iniciado |
 | **6** | API de Inferencia (FastAPI) | 🟡 Pendiente | `src/api.py` | No iniciado |
 | **7** | Simulador Interactivo (Streamlit UI) | 🟡 Pendiente | `app.py` | No iniciado |
@@ -64,18 +64,23 @@ Los siguientes datos corresponden a la telemetría oficial de Azure ML Workspace
 - **Descripción:** El modelo AutoML VotingEnsemble fue generado en Python 3.10.19 con scikit-learn 1.5.1 y mlflow 2.15.1. El entorno de desarrollo general soporta Python 3.10-3.13, pero la deserializacion fiel del modelo binario requiere concordancia de runtime.
 - **Recomendación:** Separar el entorno de desarrollo general del runtime de inferencia; utilizar Python 3.10.19 en venv dedicado o ejecucion remota documentada.
 
+### Incidencia ISSUE-SDK-02 (Resolved)
+- **Descripción:** ModuleNotFoundError: No module named 'azure.ai' al ejecutar CommandJob en el contenedor curado oficial de Azure AutoML debido a importaciones top-level del SDK de gestion.
+- **Mitigación comprobada:** Desacoplamiento arquitectonico mediante 'from __future__ import annotations', TYPE_CHECKING y lazy import de azure.ai.ml y azure.identity exclusivamente en funciones cliente (commit 1491940). Verificado exitosamente con job stoic_pot_x25ht98nv7.
+
 ---
 
 ## 5. Pruebas y Cobertura Verificada
 
 - **Suite de Pruebas:** `pytest tests/ -v`
-- **Total de Pruebas:** 68 pruebas automatizadas recopiladas.
-- **Resultado en CI (GitHub Actions) y Clones Limpios:** 65 pasando y 3 omitidas (`pytest.skip`).
-- **Justificación de las 3 Omisiones en CI:** Los modelos binarios entrenados (`models/model.pkl`) no se versionan en Git por gobernanza, seguridad y límite de peso del repositorio. Por ende, las 3 pruebas que requieren deserializar el artefacto real descargado se omiten limpiamente, mientras que las 65 pruebas de firma, contratos de interfaz y modelos sintéticos pasan al 100%. En el equipo de desarrollo local con el modelo descargado, pasan las 68 pruebas al 100%.
+- **Total de Pruebas:** 88 pruebas automatizadas recopiladas.
+- **Resultado en CI (GitHub Actions) y Clones Limpios:** 85 pasando y 3 omitidas (`pytest.skip`).
+- **Justificación de las 3 Omisiones en CI:** Los modelos binarios entrenados (`models/model.pkl`) no se versionan en Git por gobernanza, seguridad y límite de peso del repositorio. Por ende, las 3 pruebas que requieren deserializar el artefacto real descargado se omiten limpiamente, mientras que las 85 pruebas de firma, contratos de interfaz, desacoplamiento y modelos sintéticos pasan al 100%. En el equipo de desarrollo local con el modelo descargado, pasan las 88 pruebas al 100%.
 - **Archivos de Prueba:**
   - `tests/test_azure_eval_job.py`
   - `tests/test_doctor.py`
   - `tests/test_evaluation_control.py`
+  - `tests/test_evaluation_runtime_decoupling.py`
   - `tests/test_inspect_and_download.py`
   - `tests/test_model_loading.py`
   - `tests/test_model_runtime.py`
@@ -90,28 +95,16 @@ Los siguientes datos corresponden a la telemetría oficial de Azure ML Workspace
 2. **Entrenamiento AutoML:** El job `wheat_cheese_4swj34tkjn` produjo un modelo ganador `VotingEnsemble` con NRMSE de `0.05859`.
 3. **Inspección y Descarga del Artefacto (Completadas):** El activo `azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1` se descarga selectivamente mediante `ml_client.models.download` (670,849 bytes).
 4. **Verificación de Firma y Metadatos (Completada):** Se validó que el artefacto declare estrictamente las 8 variables predictoras sin requerir deserialización (`scripts/verify_model_load.py --signature-only`).
-5. **Carga Local (No Viable en Windows):** La deserialización local en el intérprete Windows/Python 3.13 no es viable debido a dependencias binarias especializadas de Azure AutoML (`azureml.training.tabular.models.voting_ensemble.PreFittedSoftVotingRegressor`).
-6. **Evaluador MLflow Independiente (Completado):** `src/evaluate_model.py` preparado para cargar paquetes MLflow, auditar solapamientos objetivamente sin atribuciones normativas ASTM y segmentar métricas a 7d y 28d.
-7. **Job Declarativo Azure ML (Completado):** Especificación reproducible `config/azure_eval_job.yml` validada contra el esquema oficial CommandJob (`limits.timeout: 1800` s) para ejecutar `evaluate_model.py` bajo el runtime oficial `mcr.microsoft.com/azureml/curated/ai-ml-automl:41` en el clúster existente `cpu-cluster-ecomix` (`Standard_DS3_v2`, `min_instances=0`).
-8. **Suite Automatizada de Pruebas:** 68 pruebas automatizadas recopiladas (65 pasando y 3 omitidas en CI por exclusión de binarios en Git; 100% pasando localmente con modelo descargado).
+5. **Desacoplamiento de Runtime (Completado):** Eliminación de dependencias del SDK Azure ML (`azure-ai-ml`) en la ruta crítica de inferencia mediante importaciones diferidas (`from __future__ import annotations` y `TYPE_CHECKING`), permitiendo ejecución transparente en contenedores curados limpios.
+6. **Evaluación Independiente en la Nube (Fase 4.4 - Completada):** Job `stoic_pot_x25ht98nv7` ejecutado exitosamente en Azure ML sobre clúster `cpu-cluster-ecomix` (`Standard_DS3_v2`) en 2m 35s. 206 observaciones evaluadas (100% exitosas) obteniendo: $R^2 = 0.9121$, RMSE = 4.7592 MPa, MAE = 3.2822 MPa, NRMSE = 0.0673. En subconjunto sin solapamiento (195 muestras): $R^2 = 0.9174$, RMSE = 4.587 MPa. A 7d: $R^2 = 0.8841$, RMSE = 5.1725 MPa. A 28d: $R^2 = 0.8235$, RMSE = 5.5930 MPa.
+7. **Consolidación de Reportes y Trazabilidad (Fase 4.5 - Completada):** Métricas oficiales almacenadas en `reports/evaluation_wheat_cheese_4swj34tkjn.json`, gráfico de correlación en `reports/evaluation_wheat_cheese_4swj34tkjn_plot.png` e informe técnico integral en `docs/EVALUATION_REPORT.md`.
+8. **Suite Automatizada de Pruebas:** 88 pruebas automatizadas recopiladas (85 pasando y 3 omitidas en CI por exclusión de binarios en Git; 100% pasando localmente con modelo descargado).
 
 ### Plan de Ejecución y Tareas Pendientes
-1. **Ejecución de la Evaluación Independiente (Fase 4.4-B):**
-   - **Estado:** No ejecutada. Planificada, validada estáticamente y lista para despacho.
-   - **Comando de Despacho en Azure ML:**
-     ```bash
-     az ml job create -f config/azure_eval_job.yml --resource-group EcomixIA --workspace-name ecomix-ia-ml
-     ```
-     *(Importante: Este comando NUNCA debe ejecutarse automáticamente por agentes IDE; requiere confirmación explícita y por escrito del usuario).* 
-   - **Configuración de Cómputo Verificada (Solo Lectura):**
-     - Clúster: `cpu-cluster-ecomix` (Tipo: `amlcompute`, Estado: `Succeeded`)
-     - Tamaño (SKU): `Standard_DS3_v2` (4 vCPUs, 14 GiB RAM)
-     - Escalamiento: `min_instances=0`, `max_instances=1` (nodo provisionado bajo demanda)
-     - Tiempo de inactividad antes de reducir a cero: `120.0 s` (2 minutos)
-   - **Tiempo de Aprovisionamiento y Costos de Cómputo:**
-     - Al estar configurado con `min_instances=0`, el clúster se encuentra apagado en reposo ($0/h).
-     - Al despachar el trabajo, Azure ML realiza un aprovisionamiento en frío (*cold start*) de 1 nodo (asignación de VM, arranque y descarga de imagen `mcr.microsoft.com/azureml/curated/ai-ml-automl:41`), lo cual toma típicamente entre 2 y 5 minutos.
-     - La ejecución del script toma entre 1 y 2 minutos, y el nodo permanece activo 2 minutos adicionales antes de escalar a cero.
-     - El tiempo facturable total oscila típicamente entre 5 y 9 minutos de `Standard_DS3_v2` (~$0.293 USD/h), con un costo estimado entre $0.024 y $0.045 USD (~0.09 a 0.17 S/.). Un costo inferior a $0.02 USD no está garantizado debido al tiempo de aprovisionamiento en frío.
-2. **Consolidación de Métricas y Trazabilidad (Fase 4.5):** Generación y registro de `reports/evaluation_wheat_cheese_4swj34tkjn.json` y el gráfico de correlación real vs predicho una vez obtenidos los resultados reales de la nube.
-3. **Módulo de Inferencia EcoMix (Fase 5):** Implementación de fórmulas de sostenibilidad (reemplazo clínker por puzolana/escoria, huella de carbono y costo) sin alterar el runtime del predictor ML.
+1. **Fase 5 — Módulo de Inferencia EcoMix (7d y 28d + Ahorro CO2):**
+   - Implementación de `src/inference.py` para consumo desde la plataforma web ASP.NET MVC 5.
+   - Validación de dominios de entrada para las 8 variables predictoras según límites del dataset UCI 165.
+   - Estimación dual a 7 y 28 días con cálculo analítico de reducción de huella de carbono (kg CO2e/m³) y costo (S/./m³).
+   - Incorporación de márgenes de seguridad de sobrediseño inspirados en ACI PRC-211.1-22 y ACI 214R debido a la dispersión observada a 28 días.
+2. **Fase 6 — API de Inferencia (FastAPI):** Exposición de microservicio REST autenticado y desacoplado.
+3. **Fase 7 — Simulador Interactivo (Streamlit UI):** Interfaz para ingeniería de mezclas ecológicas.

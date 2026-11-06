@@ -2,11 +2,11 @@
   "project_id": "ecomix-ia-ml",
   "repository": "JMedina255/EcoMix-IA-AzureML",
   "default_branch": "main",
-  "current_phase": "4.3",
-  "next_authorized_milestone": "4.4 - Evaluacion controlada e independiente del modelo ganador",
+  "current_phase": "4.5",
+  "next_authorized_milestone": "Fase 5 — Servicio de Inferencia ML (7d y 28d + Ahorro CO2)",
   "last_validation": {
-    "date": "2026-10-30",
-    "origin": "Azure ML Studio & Workspace Telemetry",
+    "date": "2026-11-06",
+    "origin": "Azure ML Studio & Workspace Telemetry (Job stoic_pot_x25ht98nv7)",
     "status": "verified"
   },
   "azure_experiment": {
@@ -82,15 +82,15 @@
     },
     "fase_4_4": {
       "name": "Evaluacion Independiente del Modelo",
-      "status": "pending",
+      "status": "completed",
       "script": "src/evaluate_model.py --evaluate",
-      "evidence": "Fase 4.4-A verificada: firma del modelo (8 variables) y prueba controlada de carga. Evaluador MLflow implementado (src/evaluate_model.py). Job declarativo Azure ML preparado y alineado al esquema oficial CommandJob con limits.timeout: 1800 (config/azure_eval_job.yml). Carga local no viable en Windows por dependencias de Azure AutoML (azureml-training-tabular). Fase 4.4-B (ejecucion de evaluacion y reporte de metricas reales) preparada para despacho autorizado en Azure ML con: az ml job create -f config/azure_eval_job.yml --resource-group EcomixIA --workspace-name ecomix-ia-ml."
+      "evidence": "Job stoic_pot_x25ht98nv7 completado exitosamente en Azure ML (2m 35s). 206 observaciones evaluadas (100% validas): R2 0.9121, RMSE 4.7592 MPa, MAE 3.2822 MPa, NRMSE 0.0673. En subconjunto sin solapamiento (195 muestras): R2 0.9174, RMSE 4.587 MPa. Desglose: 7d (R2 0.8841, RMSE 5.1725 MPa), 28d (R2 0.8235, RMSE 5.5930 MPa)."
     },
     "fase_4_5": {
       "name": "Generacion de Reportes y Trazabilidad",
-      "status": "pending",
+      "status": "completed",
       "script": "src/evaluate_model.py (reporting)",
-      "evidence": "Pendiente de consolidacion de metricas en reports/"
+      "evidence": "Reporte JSON oficial 'reports/evaluation_wheat_cheese_4swj34tkjn.json' (9,928 bytes) y grafico de correlacion auditados y consolidados. Documento de evaluacion tecnica generado en 'docs/EVALUATION_REPORT.md', especificacion de inferencia para Fase 5 preparada y estado del repositorio sincronizado."
     },
     "fase_5": {
       "name": "Modulo de Inferencia EcoMix (7d y 28d + Ahorro CO2)",
@@ -125,15 +125,23 @@
       "description": "El modelo AutoML VotingEnsemble fue generado en Python 3.10.19 con scikit-learn 1.5.1 y mlflow 2.15.1. El entorno de desarrollo general soporta Python 3.10-3.13, pero la deserializacion fiel del modelo binario requiere concordancia de runtime.",
       "status": "monitored",
       "recommendation": "Separar el entorno de desarrollo general del runtime de inferencia; utilizar Python 3.10.19 en venv dedicado o ejecucion remota documentada."
+    },
+    {
+      "id": "ISSUE-SDK-02",
+      "component": "src/evaluate_model.py / mcr.microsoft.com/azureml/curated/ai-ml-automl:41",
+      "description": "ModuleNotFoundError: No module named 'azure.ai' al ejecutar CommandJob en el contenedor curado oficial de Azure AutoML debido a importaciones top-level del SDK de gestion.",
+      "status": "resolved",
+      "workaround": "Desacoplamiento arquitectonico mediante 'from __future__ import annotations', TYPE_CHECKING y lazy import de azure.ai.ml y azure.identity exclusivamente en funciones cliente (commit 1491940). Verificado exitosamente con job stoic_pot_x25ht98nv7."
     }
   ],
   "verified_tests": {
-    "total_tests": 68,
+    "total_tests": 88,
     "suite": "pytest",
     "test_files": [
       "tests/test_azure_eval_job.py",
       "tests/test_doctor.py",
       "tests/test_evaluation_control.py",
+      "tests/test_evaluation_runtime_decoupling.py",
       "tests/test_inspect_and_download.py",
       "tests/test_model_loading.py",
       "tests/test_model_runtime.py",
@@ -141,10 +149,10 @@
     ],
     "status": "passing",
     "ci_summary": {
-      "collected": 68,
-      "passed_ci": 65,
+      "collected": 88,
+      "passed_ci": 85,
       "skipped_ci": 3,
-      "skip_reason": "Los artefactos binarios entrenados (models/model.pkl) no se versionan en Git por gobernanza y control de peso del repositorio. Las 3 pruebas que requieren deserializar el artefacto real descargado se omiten limpiamente con pytest.skip(), mientras que las 65 pruebas de firma, contratos y modelos sintéticos pasan al 100%. En el equipo local con el modelo descargado, pasan las 68 pruebas al 100%."
+      "skip_reason": "Los artefactos binarios entrenados (models/model.pkl) no se versionan en Git por gobernanza y control de peso del repositorio. Las 3 pruebas que requieren deserializar el artefacto real descargado se omiten limpiamente con pytest.skip(), mientras que las 85 pruebas de firma, contratos, desacoplamiento y modelos sinteticos pasan al 100%. En el equipo local con el modelo descargado, pasan las 88 pruebas al 100%."
     }
   }
 }
