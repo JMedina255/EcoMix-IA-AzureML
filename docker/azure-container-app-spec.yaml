@@ -10,7 +10,7 @@ apiVersion: apps/v1
 kind: ContainerApp
 metadata:
   name: ca-ecomix-inference-api
-  location: eastus2
+  location: chilecentral
   tags:
     project: EcoMix-IA
     environment: production

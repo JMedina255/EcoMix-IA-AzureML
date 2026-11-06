@@ -1,103 +1,127 @@
-# Informe de Publicación en ACR — Fase 5.6-C.2
+# Informe Técnico de Publicación en ACR — Fase 5.6-C.2R (Etapa 1 Concluida)
 
 **Proyecto:** EcoMix IA (Azure Machine Learning)  
 **Convocatoria:** Reto 2 — Yura S.A. (Hackathon Innova Sur 2026, Universidad Privada de Tacna)  
 **Rama activa:** `fix/phase-05-api-hardening`  
-**Commit base:** `a97f521`  
 **Fecha:** Noviembre 2026  
 **Responsable:** Ingeniero DevSecOps y MLOps  
-**Veredicto:** **EJECUCIÓN DETENIDA SIN GASTO — BLOQUEO POR POLÍTICA DE REGIONES EN SUSCRIPCIÓN ESTUDIANTIL**
+**Veredicto:** **ETAPA 1 CULMINADA EXITOSAMENTE — IMAGEN PUBLICADA Y CERTIFICADA EN AZURE CONTAINER REGISTRY (CHILE CENTRAL)**
 
 ---
 
-## 1. Verificaciones Previas Obligatorias
+## 1. Resumen Ejecutivo de la Etapa 1
 
-Previo a la creación de recursos, se ejecutaron rigurosamente las 9 comprobaciones requeridas:
+Conforme a la autorización expresa del usuario, se completó de forma íntegra y segura la **Etapa 1** de publicación en Azure Container Registry, utilizando la región autorizada por la política institucional estudiantil (**`chilecentral`**).
 
-| # | Verificación | Resultado | Detalle |
-|---|---|---|---|
-| **1** | **`AGENTS.md` y Estado Git** | **Aprobado** | Rama `fix/phase-05-api-hardening`, HEAD `a97f521`, árbol 100% limpio. |
-| **2** | **Suscripción Azure Activa** | **Aprobado** | `Azure for Students` (`72d4dc56-4d14-4a13-a9ca-9773ed0ba6eb`), estado `Enabled`, usuario `joamedina@upt.pe`. |
-| **3** | **Docker Desktop / Engine** | **Aprobado** | Docker Desktop 4.53.0 / Docker Engine 29.0.1 (WSL2 Linux amd64) operativo. |
-| **4** | **Presencia de Imagen Local** | **Aprobado** | `ecomix-ml-inference:1.0.0` presente (Image ID: `f50d37251430`, 8.02 GB uncompressed). |
-| **5** | **Estimador Real en Imagen** | **Aprobado** | Verificado en contenedor: `Algorithm: RegressionPipeline`, `is_synthetic: False`. |
-| **6** | **Integridad SHA-256 del Modelo** | **Aprobado** | `/app/models/model.pkl` (`670,849 bytes`), SHA-256: `7eaa501c5eeb60135effb6b5861e736518ce969c47afd53727c2451083ff6388`. |
-| **7** | **Inexistencia Previa de ACR** | **Aprobado** | `crecomixprod` no existe en la suscripción ni en Azure. |
-| **8** | **Disponibilidad de Nombre** | **Aprobado** | `az acr check-name --name crecomixprod` confirmó `nameAvailable: true`. |
-| **9** | **Ausencia de Secretos en Imagen** | **Aprobado** | Verificado que `/app` no contiene `config.json`, `.env`, `.csv` ni `.git`. |
+| Parámetro | Valor Certificado |
+|---|---|
+| **Registro de Contenedores** | `crecomixprod` |
+| **Servidor de Inicio de Sesión (Login Server)** | `crecomixprod.azurecr.io` |
+| **Región Oficial** | `chilecentral` (Chile Central) |
+| **Grupo de Recursos** | `EcomixIA` |
+| **SKU del Registro** | `Basic` (con 10 GiB de cuota incluidos) |
+| **Cuenta Administradora (`adminUserEnabled`)** | **`false`** (Deshabilitada por DevSecOps) |
+| **Modo de Asignación de Roles** | `rbac` (Autenticación exclusiva vía tokens AAD y RBAC) |
+| **Repositorio Creado** | `ecomix-ml-inference` |
+| **Etiqueta Publicada** | `1.0.0` |
+| **Digest OCI Oficial (Manifest List)** | `sha256:f50d37251430ad1e42d8df663554e0ea346a8dfffae8799393023d4afbb1d12a` |
+| **Digest de Imagen (Linux/amd64)** | `sha256:592f9704c43b561d8bc98fb838b107141ca9696834efdb329114e3483e7c2972` |
+| **Tamaño Comprimido Efectivo en ACR** | **`2,199,084,043` bytes (~2.05 GiB)** |
+| **Uso de Cuota en ACR Basic** | **~20.5%** de los 10 GiB incluidos |
+| **Hash SHA-256 del Modelo Integrado** | `7eaa501c5eeb60135effb6b5861e736518ce969c47afd53727c2451083ff6388` |
+| **Algoritmo Estimador en Imagen** | `RegressionPipeline` (`VotingEnsemble` real, `is_synthetic: false`) |
+| **Fecha/Hora de Creación de ACR** | `2026-11-06T19:23:30.915964+00:00` |
 
 ---
 
-## 2. Intento de Creación y Diagnóstico de Bloqueo por Azure Policy
+## 2. Detalle de Ejecución Paso a Paso
 
-En cumplimiento de la autorización recibida, se ejecutó el comando solicitado para la región `eastus2`:
+### 2.1 Verificaciones Previas Obligatorias
+Se validó la suscripción `Azure for Students` (`72d4dc56-4d14-4a13-a9ca-9773ed0ba6eb`, `Enabled`, usuario `joamedina@upt.pe`). Docker Desktop 4.53.0 / Engine 29.0.1 confirmó la presencia de la imagen validada `ecomix-ml-inference:1.0.0` (ID: `f50d37251430`). Se revalidó la integridad del modelo binario de 670,849 bytes y su hash SHA-256 oficial antes del etiquetado.
 
+### 2.2 Creación del Registro en Chile Central
+Se aprovisionó el recurso mediante Azure CLI:
 ```bash
 az acr create \
   --resource-group EcomixIA \
   --name crecomixprod \
   --sku Basic \
-  --location eastus2 \
+  --location chilecentral \
   --admin-enabled false \
   --role-assignment-mode rbac
 ```
+**Resultado:** Exit code 0 (`provisioningState: Succeeded`).  
+El recurso fue creado bajo el Resource ID:
+`/subscriptions/72d4dc56-4d14-4a13-a9ca-9773ed0ba6eb/resourceGroups/EcomixIA/providers/Microsoft.ContainerRegistry/registries/crecomixprod`
 
-### 2.1 Error Observado de Azure Resource Manager
-```text
-ERROR: (RequestDisallowedByAzure) Resource 'crecomixprod' was disallowed by Azure: 
-This policy maintains a set of best available regions where your subscription can deploy resources. 
-The objective of this policy is to ensure that your subscription has full access to Azure services 
-with optimal performance. Should you need additional or different regions, contact support..
-Code: RequestDisallowedByAzure
-Target: crecomixprod
+### 2.3 Autenticación Segura sin Credenciales de Administrador
+Se autenticó el cliente Docker local mediante el token federado de Microsoft Entra ID (Azure AD):
+```bash
+az acr login --name crecomixprod
 ```
+**Resultado:** `Login Succeeded`. El usuario `joamedina@upt.pe` acreditó permisos de publicación (`AcrPush`) sobre el registro sin necesidad de habilitar claves estáticas ni contraseñas.
 
-### 2.2 Auditoría de la Directiva de Gobernanza en la Suscripción
-Se consultaron de inmediato las asignaciones de directivas en la suscripción (`az policy assignment show`):
-
-- **Nombre de Directiva:** `sys.regionrestriction`
-- **Nombre Descriptivo:** `Allowed resource deployment regions`
-- **Ámbito:** `/subscriptions/72d4dc56-4d14-4a13-a9ca-9773ed0ba6eb`
-- **Lista de Regiones Exclusivamente Autorizadas (`listOfAllowedLocations`):**
-  1. `chilecentral` (Chile Central)
-  2. `mexicocentral` (Mexico Central)
-  3. `northcentralus` (North Central US)
-  4. `westcentralus` (West Central US)
-  5. `canadaeast` (Canada East)
-
-La directiva institucional impuesta sobre la suscripción `Azure for Students` **bloquea despliegues en `eastus2`**, limitando la creación de recursos a las 5 regiones anteriores.
+### 2.4 Etiquetado y Publicación (`docker push`)
+```bash
+docker tag ecomix-ml-inference:1.0.0 crecomixprod.azurecr.io/ecomix-ml-inference:1.0.0
+docker push crecomixprod.azurecr.io/ecomix-ml-inference:1.0.0
+```
+**Resultado:** Exit code 0.  
+Todas las capas se transfirieron y consolidaron en el registro privado.
 
 ---
 
-## 3. Diagnóstico de Compatibilidad en las Regiones Autorizadas
+## 3. Verificación de la Publicación y Auditoría del Repositorio
 
-Se verificó el soporte de proveedores en las 5 regiones autorizadas por la política:
+La consulta de metadatos OCI (`az acr manifest list-metadata`) arrojó:
 
-| Región Autorizada | Proveedor `Microsoft.ContainerRegistry` | Proveedor `Microsoft.App` (ACA) | Latencia Estimada para Tacna, Perú |
-|---|---|---|---|
-| **`chilecentral`** (Chile Central) | **Disponible** | **Disponible** | **Mínima (~30-50 ms)** — Recomendada |
-| **`mexicocentral`** (México Central) | **Disponible** | **Disponible** | Media (~100-130 ms) |
-| **`northcentralus`** (North Central US) | **Disponible** | **Disponible** | Media-Alta (~140-160 ms) |
-| **`westcentralus`** (West Central US) | **Disponible** | **Disponible** | Media-Alta (~150-170 ms) |
-| **`canadaeast`** (Canadá Este) | **Disponible** | **Disponible** | Alta (~160-190 ms) |
-
-Tanto **Azure Container Registry** como **Azure Container Apps** están plenamente soportados en **`chilecentral`**, lo cual representa una ventaja arquitectónica adicional por proximidad geográfica con el nodo de Tacna (Universidad Privada de Tacna).
+1. **Manifest List Index:**
+   - **Digest:** `sha256:f50d37251430ad1e42d8df663554e0ea346a8dfffae8799393023d4afbb1d12a`
+   - **Tags:** `["1.0.0"]`
+   - **Media Type:** `application/vnd.oci.image.index.v1+json`
+2. **Capa Ejecutable Linux amd64:**
+   - **Digest:** `sha256:592f9704c43b561d8bc98fb838b107141ca9696834efdb329114e3483e7c2972`
+   - **Tamaño:** `2,199,084,043 bytes` (~2.05 GiB)
+   - **Arquitectura:** `amd64`, SO: `linux`
+3. **Seguridad del Registro:**
+   - `adminUserEnabled`: **`false`**
+   - Acceso público anónimo: `disabled`
+   - Autenticación: Azure AD / RBAC únicamente.
+4. **Gobernanza Git y Secretos:**
+   - Se verificó que `models/` y los binarios `.pkl` continúan excluidos en `.gitignore`.
+   - Ningún artefacto confidencial, credencial o dataset ha sido enviado a GitHub.
 
 ---
 
-## 4. Estado del Presupuesto y Recursos
+## 4. Control Presupuestario y de Costos
 
-- **Recursos Creados:** Ninguno (el registro no llegó a aprovisionarse).
-- **Gasto Real Facturado:** **USD 0.00**.
-- **Crédito Remanente en `Azure for Students`:** **USD 20.00 (100% intacto)**.
-- **Imagen Local:** Preservada intacta en Docker local (`ecomix-ml-inference:1.0.0`).
+> [!NOTE]
+> **Descargo de responsabilidad de facturación:**  
+> Microsoft Cost Management presenta una latencia habitual de 8 a 24 horas para reflejar los consumos en los portales analíticos. Las cifras a continuación corresponden a las tarifas oficiales minoristas vigentes en Azure para `chilecentral`.
+
+- **Presupuesto Total Suscripción:** **USD 20.00**
+- **Cómputo en la Nube:** **USD 0.00** (el build se realizó localmente en la estación de trabajo, ahorrando costos de ACR Tasks).
+- **Tráfico de Red Entrante (Ingress):** **USD 0.00** (la subida de imágenes a Azure es gratuita en todas las regiones).
+- **Tarifa Fija de Almacenamiento ACR Basic:** **~$0.167 USD/día** (~$5.00 USD/mes).
+- **Gasto Estimado de Etapa 1:** **~$0.17 a USD 0.34** (para un periodo de prueba de 1 a 2 días).
+- **Saldo Disponible Remanente:** **> USD 19.65** (más del 98% del crédito protegido para la Etapa 2 y pruebas con la plataforma web).
+
+### Procedimiento de Eliminación Inmediata (En caso de abortar o limpiar):
+Para cancelar inmediatamente la facturación diaria del registro:
+```bash
+az acr delete --name crecomixprod --resource-group EcomixIA --yes
+```
 
 ---
 
 ## 5. Cumplimiento de Restricciones y Detención
 
-En estricta observancia de las reglas del usuario:
-- *«Si alguna verificación falla, detener la ejecución.»*
-- *«Si el comando falla, no realizar reintentos automáticos.»*
+En estricta conformidad con las directrices vigentes:
+- **NO** se creó Azure Container Apps.
+- **NO** se registró `Microsoft.App` ni se crearon identidades administradas.
+- **NO** se desplegó la API FastAPI como servicio público.
+- **NO** se realizaron modificaciones al plan estudiantil ni se ejecutaron trabajos de Azure ML.
+- **NO** se realizó push o merge a GitHub.
+- El registro `crecomixprod` contiene únicamente la imagen inmutable oficial de inferencia predictiva.
 
-**No se ejecutó ningún reintento automático ni se alteró la región por cuenta propia.** El agente se detiene aquí para solicitar la aprobación explícita del usuario respecto a la nueva región autorizada (`chilecentral`).
+**El agente se detiene aquí al concluir satisfactoriamente la Etapa 1. El inicio de la Etapa 2 (Despliegue en Azure Container Apps) requerirá una nueva autorización expresa.**
