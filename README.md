@@ -76,7 +76,7 @@ ML EcomixIA/
 | **1** | **Descarga de Datos** | ✅ Completado | `data/raw/concrete_raw.csv` | Adquisición del dataset estándar UCI (ID 165) y preservación inalterada. |
 | **2** | **Preparación y Validación** | ✅ Completado | [`src/prepare_data.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/src/prepare_data.py) | Verificación de 0 nulos, 25 réplicas ASTM, tipado, normalización y split 80/20 (`seed=42`). |
 | **3** | **Entrenamiento AutoML en Azure** | ✅ Completado | [`src/train_automl.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/src/train_automl.py) | Clúster `cpu-cluster-ecomix`. Límites estrictos (30 min, 5 min/trial, 12 modelos). Job `wheat_cheese_4swj34tkjn`. |
-| **4** | **Evaluación Independiente** | 🟡 Listo para ejecutar | [`src/evaluate_model.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/src/evaluate_model.py) | Descarga del mejor modelo, cálculo de $R^2$, RMSE y MAE con las 206 muestras aisladas de prueba. |
+| **4** | **Evaluación Independiente y Consolidación** | ✅ Completado | [`src/evaluate_model.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/src/evaluate_model.py) | Job Azure ML `stoic_pot_x25ht98nv7` completado en contenedor curado. $R^2 = 0.9121$, $\text{RMSE} = 4.7592\text{ MPa}$, $\text{MAE} = 3.2822\text{ MPa}$ en 206 muestras. Informe en [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md). |
 | **5** | **Módulo de Inferencia EcoMix** | ⏳ Próximo | `src/inference.py` | Lógica dual de predicción a 7 y 28 días + cálculo de ahorro de huella de carbono ($\text{CO}_2$). |
 | **6** | **API de Inferencia (Backend)** | ⏳ Próximo | `src/api.py` | Microservicio REST con FastAPI para integración con sistemas de dosificación en planta. |
 | **7** | **Simulador Interactivo (UI)** | ⏳ Próximo | `app.py` | Interfaz web interactiva en Streamlit para cálculo de dosificaciones y curvas de curado. |
@@ -116,13 +116,19 @@ ML EcomixIA/
      python src/evaluate_model.py --download --job-name wheat_cheese_4swj34tkjn
      ```
      *El script resuelve dinámicamente el Model Asset registrado (`ml_client.models.download`), eludiendo el defecto interno de resolución de outputs del SDK (`BatchGetResolvedUrisDto`) y garantizando descarga controlada sin `all=True`.*
-   - **Evaluación independiente contra el dataset de prueba (206 muestras):**
+   - **Evaluación independiente oficial en Azure ML (Job `stoic_pot_x25ht98nv7`):**
+     La evaluación independiente se ejecutó en la nube bajo el contenedor curado oficial `mcr.microsoft.com/azureml/curated/ai-ml-automl:41` mediante el job declarativo [`config/azure_eval_job.yml`](config/azure_eval_job.yml):
      ```bash
-     python src/evaluate_model.py --evaluate --model-path models/wheat_cheese_4swj34tkjn/best_model/model.pkl
+     az ml job create -f config/azure_eval_job.yml --resource-group EcomixIA --workspace-name ecomix-ia-ml
      ```
+     **Resultados Certificados (206 muestras de prueba):**
+     - $R^2$: **`0.9121`** (Global) / **`0.9174`** (Subconjunto sin solapamiento con entrenamiento)
+     - RMSE: **`4.7592` MPa** | MAE: **`3.2822` MPa** | NRMSE: **`0.0673`**
+     - Desglose por Edad: 7 días ($R^2 = 0.8841$, $\text{RMSE} = 5.17\text{ MPa}$) | 28 días ($R^2 = 0.8235$, $\text{RMSE} = 5.59\text{ MPa}$)
+     - Reporte detallado disponible en: [`docs/EVALUATION_REPORT.md`](docs/EVALUATION_REPORT.md) y [`reports/evaluation_wheat_cheese_4swj34tkjn.json`](reports/evaluation_wheat_cheese_4swj34tkjn.json).
 
    > [!NOTE]
-   > Para más detalles sobre el análisis del error interno del SDK (`BatchGetResolvedUrisDto`), la exclusión de Azure CLI por compartir la misma falla y las alternativas comprobadas de descarga, consulte [`docs/azure_ml_sdk_download_issue.md`](docs/azure_ml_sdk_download_issue.md).
+   > Para más detalles sobre el análisis de incidencias resueltas del SDK (`BatchGetResolvedUrisDto` e importación en contenedor), consulte [`docs/azure_ml_sdk_download_issue.md`](docs/azure_ml_sdk_download_issue.md) y el historial de incidencias en [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md).
 
 ---
 
