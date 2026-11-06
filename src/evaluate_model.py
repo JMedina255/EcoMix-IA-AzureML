@@ -4,6 +4,8 @@ Proyecto: ML EcomixIA
 Optimizado para bajo consumo de recursos (CPU i5, 16GB RAM) y trazabilidad estricta.
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import json
@@ -14,7 +16,11 @@ import tracemalloc
 from enum import Enum
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Optional, Dict, Any, Tuple, List
+from typing import TYPE_CHECKING, Optional, Dict, Any, Tuple, List
+
+if TYPE_CHECKING:
+    from azure.ai.ml import MLClient
+    from azure.identity import DefaultAzureCredential, InteractiveBrowserCredential
 
 # Reconfigurar salida en Windows para evitar errores de codificación charmap
 if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
@@ -36,9 +42,6 @@ import mlflow.sklearn
 
 # Silenciar mensajes informativos de tracing de MLflow
 os.environ["MLFLOW_DISABLE_AGENT_HINT"] = "1"
-
-from azure.ai.ml import MLClient
-from azure.identity import DefaultAzureCredential, InteractiveBrowserCredential
 
 # 1. Configuración de rutas y constantes
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -164,6 +167,15 @@ def normalize_job_outputs(outputs: Any, job: Optional[Any] = None) -> Dict[str, 
 def get_azure_credentials():
     """Obtiene credenciales locales activas o recurre al navegador interactivo."""
     try:
+        from azure.identity import DefaultAzureCredential, InteractiveBrowserCredential
+    except ImportError as e:
+        raise ImportError(
+            "Los paquetes de autenticación de Azure ('azure-identity') no están instalados "
+            "en este entorno. Se requieren exclusivamente para operaciones de administración "
+            "(--inspect, --download) desde el cliente."
+        ) from e
+
+    try:
         cred = DefaultAzureCredential()
         cred.get_token("https://management.azure.com/.default")
         print("[AUTH] Credencial local activa detectada.")
@@ -176,6 +188,15 @@ def get_azure_credentials():
 
 def get_ml_client(config_path: Path = CONFIG_PATH) -> MLClient:
     """Crea una instancia de MLClient a partir del archivo de configuración."""
+    try:
+        from azure.ai.ml import MLClient
+    except ImportError as e:
+        raise ImportError(
+            "El SDK de Azure ML ('azure-ai-ml') no está instalado en este entorno. "
+            "Se requiere exclusivamente para operaciones de administración (--inspect, --download) "
+            "desde el cliente, no para la evaluación remota (--evaluate)."
+        ) from e
+
     if not config_path.exists():
         raise FileNotFoundError(
             f"No se encontró el archivo de configuración en: {config_path}\n"
