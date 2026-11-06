@@ -16,12 +16,13 @@ venv/
 env/
 ENV/
 
-# Modelos binarios locales (se montan en tiempo de ejecución)
-models/*.pkl
-models/*.joblib
-models/*.onnx
-models/**/*.pkl
-models/**/*.joblib
+# Modelos binarios locales: excluir todos excepto el artefacto MLflow oficial certificado (670 KB)
+models/*
+!models/wheat_cheese_4swj34tkjn
+!models/wheat_cheese_4swj34tkjn/model_asset_v1
+!models/wheat_cheese_4swj34tkjn/model_asset_v1/azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674
+!models/wheat_cheese_4swj34tkjn/model_asset_v1/azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674/mlflow-model
+!models/wheat_cheese_4swj34tkjn/model_asset_v1/azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674/mlflow-model/**
 
 # Datos brutos y de procesamiento
 data/raw/

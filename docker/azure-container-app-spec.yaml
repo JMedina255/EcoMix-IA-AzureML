@@ -85,9 +85,8 @@ spec:
             failureThreshold: 2
             timeoutSeconds: 2
 
-        volumeMounts:
-          - volumeName: azure-model-volume
-            mountPath: /app/models
+        # Nota: La imagen inmutable (Opción C) ya contiene el modelo en /app/models/.
+        # No se requieren montajes externos de Azure Files ni Storage Accounts adicionales.
 
     scale:
       # Política de Ahorro Presupuestario (Azure for Students - Límite USD 20):
@@ -100,8 +99,3 @@ spec:
           http:
             metadata:
               concurrentRequests: "20"
-
-    volumes:
-      - name: azure-model-volume
-        storageType: AzureFile
-        storageName: ecomix-model-storage

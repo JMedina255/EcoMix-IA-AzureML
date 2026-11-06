@@ -30,16 +30,20 @@ COPY docker/requirements-inference.txt /app/requirements-inference.txt
 RUN /opt/miniconda/envs/amlenv/bin/pip install --no-cache-dir -r /app/requirements-inference.txt
 
 # 2. Copiar código fuente y configuración declarativa del proyecto
-# Nota: docker/.dockerignore excluye secretos, datasets brutos, caches y modelos .pkl
+# Nota: docker/.dockerignore excluye secretos, datasets brutos, caches y entornos virtuales
 COPY src/ /app/src/
 COPY config/ /app/config/
 
-# 3. Crear directorios para montaje seguro del modelo en tiempo de ejecución
-# Se otorga permiso de lectura y ejecución universal para compatibilidad con montajes de volumen
-RUN mkdir -p /app/models /app/logs && \
+# 3. Incorporar el artefacto predictivo MLflow oficial certificado (670 KB, SHA-256 verificado)
+# Esto convierte la imagen en un artefacto inmutable y autocontenido (Opción C),
+# eliminando costos y complejidad de almacenamiento externo (Azure Files / Blob Storage).
+COPY models/wheat_cheese_4swj34tkjn/model_asset_v1/azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674/mlflow-model/ /app/models/
+
+# 4. Configurar permisos para directorios de trabajo y logs
+RUN mkdir -p /app/logs && \
     chmod -R 755 /app
 
-# 4. Configurar usuario no privilegiado (Principle of Least Privilege)
+# 5. Configurar usuario no privilegiado (Principle of Least Privilege)
 RUN useradd -u 10001 -m -s /bin/bash appuser && \
     chown -R appuser:appuser /app
 
