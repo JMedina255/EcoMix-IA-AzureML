@@ -1,0 +1,45 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Secretos y configuración privada
+config.json
+.env
+*.key
+*.token
+*.pem
+
+# Entornos virtuales locales
+.venv/
+venv/
+env/
+ENV/
+
+# Modelos binarios locales (se montan en tiempo de ejecución)
+models/*.pkl
+models/*.joblib
+models/*.onnx
+models/**/*.pkl
+models/**/*.joblib
+
+# Datos brutos y de procesamiento
+data/raw/
+data/processed/
+
+# Caches y bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs y reportes volátiles
+*.log
+reports/*.png
+
+# Documentos innecesarios para el runtime
+docs/
+.gemini/

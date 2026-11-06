@@ -1,0 +1,28 @@
+# ==============================================================================
+# EcoMix IA — Dependencias de Inferencia y API REST para Contenedor de Producción
+# Runtime Objetivo: Python 3.10.19 (Azure Curated Image ai-ml-automl:41)
+# ==============================================================================
+
+# Framework Web y Servidor ASGI
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+starlette==0.41.3
+
+# Validación y Configuración Tipada (Pydantic V2)
+pydantic==2.12.5
+pydantic-core==2.41.5
+pydantic-settings==2.12.0
+
+# Cliente HTTP para pruebas internas y comunicación entre servicios
+httpx==0.28.1
+
+# Runtime Científico y de Machine Learning (Paridad estricta con Azure AutoML)
+# Nota: En la imagen base mcr.microsoft.com/azureml/curated/ai-ml-automl:41
+# estos paquetes ya se encuentran preinstalados y vinculados a C-extensions.
+# Se fijan aquí para reproducibilidad y verificación de paridad de versiones.
+numpy==1.26.4
+pandas==2.2.2
+scikit-learn==1.5.1
+mlflow-skinny==2.15.1
+azureml-training-tabular==1.61.0
+azureml-automl-runtime==1.61.0

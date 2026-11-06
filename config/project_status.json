@@ -2,8 +2,8 @@
   "project_id": "ecomix-ia-ml",
   "repository": "JMedina255/EcoMix-IA-AzureML",
   "default_branch": "main",
-  "current_phase": "4.5",
-  "next_authorized_milestone": "Fase 5 — Servicio de Inferencia ML (7d y 28d + Ahorro CO2)",
+  "current_phase": "5.6-A",
+  "next_authorized_milestone": "Fase 5.6-A — Endurecimiento de API y preparación para contenedorización",
   "last_validation": {
     "date": "2026-11-06",
     "origin": "Azure ML Studio & Workspace Telemetry (Job stoic_pot_x25ht98nv7)",
@@ -93,10 +93,16 @@
       "evidence": "Reporte JSON oficial 'reports/evaluation_wheat_cheese_4swj34tkjn.json' (9,928 bytes) y grafico de correlacion auditados y consolidados. Documento de evaluacion tecnica generado en 'docs/EVALUATION_REPORT.md', especificacion de inferencia para Fase 5 preparada y estado del repositorio sincronizado."
     },
     "fase_5": {
-      "name": "Modulo de Inferencia EcoMix (7d y 28d + Ahorro CO2)",
-      "status": "pending",
-      "script": "src/inference.py",
-      "evidence": "No iniciado"
+      "name": "Servicio de Inferencia ML y API REST (7d y 28d)",
+      "status": "completed",
+      "script": "src/api/main.py",
+      "evidence": "Motor de inferencia real VotingEnsemble validado en Azure ML (serene_spinach_sn7khxvkq7) con paridad determinística (|Δ|=0.0 MPa). Microservicio REST FastAPI modular implementado, validado con 18 pruebas y fusionado a main (PR #1, commit 0af7692)."
+    },
+    "fase_5_6_a": {
+      "name": "Endurecimiento DevSecOps y Preparacion de Contenedor",
+      "status": "in_progress",
+      "script": "src/api/config.py",
+      "evidence": "En ejecucion en rama fix/phase-05-api-hardening."
     },
     "fase_6": {
       "name": "API de Inferencia (FastAPI)",

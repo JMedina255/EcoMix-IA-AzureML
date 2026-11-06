@@ -11,8 +11,8 @@
 - **Identificador del Proyecto:** `ecomix-ia-ml`
 - **Repositorio:** `JMedina255/EcoMix-IA-AzureML`
 - **Rama Principal:** `main`
-- **Fase Actual:** `4.5 — Generacion de Reportes y Trazabilidad`
-- **Próximo Hito Autorizado:** `Fase 5 — Servicio de Inferencia ML (7d y 28d + Ahorro CO2)`
+- **Fase Actual:** `5.6-A — Consolidación documental y cierre de evaluación`
+- **Próximo Hito Autorizado:** `Fase 5.6-A — Endurecimiento de API y preparación para contenedorización`
 - **Última Validación Registrada:** `2026-11-06` (Origen: *Azure ML Studio & Workspace Telemetry (Job stoic_pot_x25ht98nv7)*)
 
 ---
@@ -29,7 +29,7 @@
 | **4.3** | Descarga Selectiva de Artefactos | ✅ Completado | `src/evaluate_model.py --download` | Descarga directa asegurada mediante Model Asset verificado sin all=True |
 | **4.4** | Evaluacion Independiente del Modelo | ✅ Completado | `src/evaluate_model.py --evaluate` | Job stoic_pot_x25ht98nv7 completado exitosamente en Azure ML (2m 35s). 206 observaciones evaluadas (100% validas): R2 0.9121, RMSE 4.7592 MPa, MAE 3.2822 MPa, NRMSE 0.0673. En subconjunto sin solapamiento (195 muestras): R2 0.9174, RMSE 4.587 MPa. Desglose: 7d (R2 0.8841, RMSE 5.1725 MPa), 28d (R2 0.8235, RMSE 5.5930 MPa). |
 | **4.5** | Generacion de Reportes y Trazabilidad | ✅ Completado | `src/evaluate_model.py (reporting)` | Reporte JSON oficial 'reports/evaluation_wheat_cheese_4swj34tkjn.json' (9,928 bytes) y grafico de correlacion auditados y consolidados. Documento de evaluacion tecnica generado en 'docs/EVALUATION_REPORT.md', especificacion de inferencia para Fase 5 preparada y estado del repositorio sincronizado. |
-| **5** | Modulo de Inferencia EcoMix (7d y 28d + Ahorro CO2) | 🟡 Pendiente | `src/inference.py` | No iniciado |
+| **5** | Servicio de Inferencia ML y API REST (7d y 28d) | ✅ Completado | `src/api/main.py` | Motor de inferencia real VotingEnsemble validado en Azure ML (serene_spinach_sn7khxvkq7) con paridad determinística (|Δ|=0.0 MPa). Microservicio REST FastAPI modular implementado, validado con 18 pruebas y fusionado a main (PR #1, commit 0af7692). |
 | **6** | API de Inferencia (FastAPI) | 🟡 Pendiente | `src/api.py` | No iniciado |
 | **7** | Simulador Interactivo (Streamlit UI) | 🟡 Pendiente | `app.py` | No iniciado |
 

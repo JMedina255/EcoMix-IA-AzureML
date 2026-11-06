@@ -1,0 +1,104 @@
+# ==============================================================================
+# EcoMix IA — Especificación Declarativa para Azure Container Apps
+# Arquitectura: Microservicio FastAPI (Python 3.10.19) + VotingEnsemble Real
+# Nota: Esta plantilla documenta la configuración objetivo para despliegue
+#       futuro (Fase 5.6-B), sin aprovisionar recursos facturables en Azure.
+# ==============================================================================
+
+apiVersion: apps/v1
+kind: ContainerApp
+metadata:
+  name: ca-ecomix-inference-api
+  location: eastus2
+  tags:
+    project: EcoMix-IA
+    environment: production
+    challenge: Reto-2-Yura
+    managed-by: MLOps-DevSecOps
+spec:
+  managedEnvironmentId: /subscriptions/{SUBSCRIPTION_ID}/resourceGroups/rg-ecomix-ia/providers/Microsoft.App/managedEnvironments/me-ecomix-prod
+  configuration:
+    ingress:
+      external: true
+      targetPort: 8000
+      transport: auto
+      allowInsecure: false # Exclusivamente HTTPS (TLS 1.3)
+      traffic:
+        - latestRevision: true
+          weight: 100
+    secrets:
+      - name: ecomix-api-key-secret
+        keyVaultUrl: https://kv-ecomix-prod.vault.azure.net/secrets/ECOMIX-API-KEY
+        identity: system
+  template:
+    containers:
+      - name: ecomix-ml-api
+        image: cr-ecomix-prod.azurecr.io/ecomix-ml-inference:1.0.0
+        resources:
+          cpu: 1.0
+          memory: 2.0Gi
+        env:
+          - name: ECOMIX_ENV
+            value: production
+          - name: ECOMIX_PORT
+            value: "8000"
+          - name: ECOMIX_HOST
+            value: 0.0.0.0
+          - name: ECOMIX_MODEL_PATH
+            value: /app/models/model_asset_v1/azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674/mlflow-model
+          - name: ECOMIX_API_KEY
+            secretRef: ecomix-api-key-secret
+        probes:
+          # 1. Sonda de Arranque (Startup Probe):
+          # Tolera hasta 60s (10s delay + 10 intentos * 5s) para la carga pesada del VotingEnsemble
+          - type: Startup
+            httpGet:
+              path: /health/startup
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 10
+            timeoutSeconds: 3
+
+          # 2. Sonda de Vida (Liveness Probe):
+          # Verifica que el proceso Uvicorn responda continuamente
+          - type: Liveness
+            httpGet:
+              path: /health/live
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 2
+
+          # 3. Sonda de Preparación (Readiness Probe):
+          # Garantiza que solo reciba tráfico si el modelo está 100% en RAM
+          - type: Readiness
+            httpGet:
+              path: /health/ready
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 2
+            timeoutSeconds: 2
+
+        volumeMounts:
+          - volumeName: azure-model-volume
+            mountPath: /app/models
+
+    scale:
+      minReplicas: 1 # Zero Cold Start: Al menos 1 réplica activa (Always On)
+      maxReplicas: 3 # Escalado horizontal ante alta concurrencia
+      rules:
+        - name: http-scaling-rule
+          http:
+            metadata:
+              concurrentRequests: "50"
+
+    volumes:
+      - name: azure-model-volume
+        storageType: AzureFile
+        storageName: ecomix-model-storage

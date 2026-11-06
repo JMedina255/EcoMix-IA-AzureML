@@ -56,12 +56,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     1. Arranque (Startup): Inicializa y carga en memoria RAM el modelo VotingEnsemble una sola vez.
        En caso de runtime incompatible (e.g. desarrollo local bajo Python 3.13), registra la advertencia
        sin abortar el proceso, permitiendo responder a sondas de vida y pruebas.
+       Nota técnica ASGI: Durante la fase previa a 'yield', el servidor ASGI no acepta peticiones HTTP externas.
+       Las sondas /health/live y /health/ready responderán tan pronto concluya el arranque.
     2. Parada (Shutdown): Libera recursos de forma segura.
     """
-    settings: ApiSettings = app.state.settings
+    settings: ApiSettings = getattr(app.state, "settings", None) or get_settings()
     loader = ModelLoader.get_instance()
 
     logger.info("Inicializando servicio EcoMix IA (Entorno: %s)...", settings.environment)
+
+    # Verificación preventiva de seguridad en producción
+    if settings.environment == "production":
+        valid_keys = settings.get_valid_api_keys()
+        if not valid_keys:
+            raise RuntimeError("Fallo crítico de configuración: No hay claves API configuradas en producción.")
 
     # Intentar carga en memoria del modelo oficial si existe en disco
     try:
@@ -80,7 +88,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except ModelNotFoundError as fnf_err:
         logger.warning("Modelo no encontrado en disco: %s. Verifique la ruta configurada.", fnf_err)
     except Exception as ex:
-        logger.error("Error durante la inicialización del modelo: %s", ex, exc_info=True)
+        logger.error("Error durante la inicialización del modelo: %s", ex, exc_info=False)
 
     yield
 
@@ -91,14 +99,19 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
     """Fábrica de aplicación FastAPI."""
     current_settings = settings or get_settings()
 
+    is_prod = current_settings.environment == "production"
+    docs_url = None if is_prod and not current_settings.debug else "/docs"
+    redoc_url = None if is_prod and not current_settings.debug else "/redoc"
+    openapi_url = None if is_prod and not current_settings.debug else "/openapi.json"
+
     app = FastAPI(
         title=current_settings.app_name,
         version=current_settings.app_version,
         description=current_settings.app_description,
         lifespan=lifespan,
-        docs_url="/docs" if current_settings.debug or current_settings.environment != "production" else None,
-        redoc_url="/redoc" if current_settings.debug or current_settings.environment != "production" else None,
-        openapi_url="/openapi.json" if current_settings.debug or current_settings.environment != "production" else None,
+        docs_url=docs_url,
+        redoc_url=redoc_url,
+        openapi_url=openapi_url,
     )
 
     app.state.settings = current_settings
@@ -125,26 +138,25 @@ def create_app(settings: ApiSettings | None = None) -> FastAPI:
     # 4. Endpoint Raíz
     @app.get(
         "/",
-        summary="Información General del Servicio",
-        include_in_schema=False,
+        summary="Información de Estado del Servicio",
+        description="Retorna el estado operativo, nombre y versión del servicio EcoMix IA.",
+        tags=["General"],
     )
     async def root_info() -> Dict[str, Any]:
         return {
             "service": current_settings.app_name,
             "version": current_settings.app_version,
             "status": "online",
-            "documentation": "/docs" if app.docs_url else "disabled_in_production",
+            "environment": current_settings.environment,
+            "docs": "/docs" if not (is_prod and not current_settings.debug) else "Desactivado en producción",
         }
 
     return app
 
 
-# Instancia por defecto de la aplicación para servidores ASGI (Uvicorn / Gunicorn)
 app = create_app()
 
-
-def main() -> int:
-    """Punto de entrada para ejecución directa CLI."""
+if __name__ == "__main__":
     settings = get_settings()
     uvicorn.run(
         "src.api.main:app",
@@ -152,8 +164,3 @@ def main() -> int:
         port=settings.port,
         reload=settings.debug,
     )
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
