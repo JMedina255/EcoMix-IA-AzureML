@@ -8,6 +8,7 @@ Pruebas automatizadas de integración para la Fase 5.4-A de EcoMix IA:
 - Comparación empírica de latencias de arranque en frío (Cold-Start) vs. inferencia en caliente (Warm-Inference).
 """
 
+import json
 import math
 import threading
 import time
@@ -279,3 +280,87 @@ def test_cold_start_vs_warm_inference_timing_separation():
     # Ambas mediciones existen y son números finitos no negativos
     assert t_cold >= 0.0
     assert t_warm >= 0.0
+
+
+# =====================================================================
+# 5. AUDITORÍA DE CONSISTENCIA Y MÉTRICAS OFICIALES
+# =====================================================================
+
+def test_evaluation_metrics_and_nrmse_mathematical_consistency():
+    """
+    Verifica la consistencia matemática de las métricas oficiales en reports/evaluation_wheat_cheese_4swj34tkjn.json:
+    1. R2 = 0.9121, RMSE = 4.7592, MAE = 3.2822, NRMSE = 0.0673.
+    2. Comprueba que el denominador de NRMSE es el rango de prueba (y_test.max() - y_test.min() == 70.67),
+       y no el rango del dataset UCI completo (80.27).
+    """
+    eval_json = PROJECT_ROOT / "reports" / "evaluation_wheat_cheese_4swj34tkjn.json"
+    assert eval_json.exists(), "El reporte oficial de evaluación debe existir en reports/"
+
+    with open(eval_json, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    gm = data["global_metrics"]
+    assert gm["r2_score"] == 0.9121
+    assert gm["rmse_mpa"] == 4.7592
+    assert gm["mae_mpa"] == 3.2822
+    assert gm["nrmse"] == 0.0673
+
+    # Verificar cálculo del denominador en concrete_test.csv
+    test_csv = PROJECT_ROOT / "data" / "processed" / "concrete_test.csv"
+    if test_csv.exists():
+        import pandas as pd
+        df_test = pd.read_csv(test_csv)
+        y = df_test["concrete_compressive_strength"]
+        y_min = float(y.min())
+        y_max = float(y.max())
+        test_range = y_max - y_min
+        assert math.isclose(y_min, 4.83, abs_tol=1e-2)
+        assert math.isclose(y_max, 75.50, abs_tol=1e-2)
+        assert math.isclose(test_range, 70.67, abs_tol=1e-2)
+
+        # NRMSE con rango de test: 4.7592 / 70.67 = 0.067344 -> round(..., 4) == 0.0673
+        calculated_nrmse = round(gm["rmse_mpa"] / test_range, 4)
+        assert calculated_nrmse == 0.0673
+
+
+def test_real_inference_validation_report_parity_and_benchmarks():
+    """
+    Verifica que reports/real_inference_validation.json contenga los 3 benchmarks evaluados
+    con paridad estricta (< 1e-5 MPa) y sin estimadores sintéticos.
+    """
+    inf_json = PROJECT_ROOT / "reports" / "real_inference_validation.json"
+    assert inf_json.exists(), "El reporte de validación real debe existir en reports/"
+
+    with open(inf_json, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    assert data["overall_status"] == "SUCCESS"
+    assert data["model_artifact"]["sha256"] == OFFICIAL_MODEL_SHA256
+    assert data["model_artifact"]["sha256_verified"] is True
+    assert data["model_artifact"]["model_type"] == "VotingEnsemble"
+
+    benchmarks = data["benchmark_results"]
+    assert len(benchmarks) == 3
+
+    for b in benchmarks:
+        assert b["status"] == "PASSED"
+        assert b["numerical_parity_verified"] is True
+        assert b["parity_threshold_met_1e5"] is True
+        assert b["absolute_diff_7d_mpa"] < 1e-5
+        assert b["absolute_diff_28d_mpa"] < 1e-5
+        assert b["inference_latency_ms"] > 0.0
+        assert b["inference_latency_ms"] < 2000.0  # Límite SLA del SRS
+
+    # Verificar que el benchmark canónico tenga exactamente los valores esperados
+    canon = benchmarks[0]
+    assert canon["case_id"] == "canonical_ecomix"
+    assert canon["inputs_kg_m3"]["cement"] == 280.0
+    assert canon["inputs_kg_m3"]["blast_furnace_slag"] == 105.0
+    assert canon["inputs_kg_m3"]["fly_ash"] == 60.0
+    assert canon["predictions_engine"]["strength_7d_mpa"] == 35.16
+    assert canon["predictions_engine"]["strength_28d_mpa"] == 49.58
+
+    # Verificar memoria registrada
+    ru = data.get("resource_usage", {})
+    assert "peak_memory_mb" in ru
+    assert ru["peak_memory_mb"] <= 500.0

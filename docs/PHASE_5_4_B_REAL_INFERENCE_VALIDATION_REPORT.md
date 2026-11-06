@@ -87,8 +87,8 @@ Verificación:         [OK - COINCIDE EXACTAMENTE AL 100%]
 Se evaluaron tres mezclas representativas del espectro de diseño de mezclas de concreto:
 
 ### Caso 1: Dosificación Canónica EcoMix (`canonical_ecomix`)
-- **Composición ($\text{kg/m}^3$):** Cemento: $280$, Escoria: $105$, Puzolana: $60$, Agua: $175$, SP: $8.5$, Ag. Grueso: $1020$, Ag. Fino: $750$.
-- **Ratios Calculados:** $a/c = 0.625$, $a/mc = 0.3933$, Sustitución SCM: $37.08\%$, Masa Total: $2398.5\text{ kg/m}^3$.
+- **Composición ($\text{kg/m}^3$):** Cemento: $280.0$, Escoria: $105.0$, Ceniza volante / Puzolana (`fly_ash`): $60.0$, Agua: $175.0$, SP: $8.5$, Ag. Grueso: $1020.0$, Ag. Fino: $750.0$.
+- **Ratios Calculados:** $a/c = 0.6250$, $a/mc = 0.3933$, Sustitución SCM: $37.08\%$, Masa Total: $2398.5\text{ kg/m}^3$.
 - **Predicción a 7 días:**
   - Fachada `DualPredictionEngine`: **$35.16\text{ MPa}$**
   - Estimador Directo: **$35.16\text{ MPa}$**
@@ -104,7 +104,7 @@ Se evaluaron tres mezclas representativas del espectro de diseño de mezclas de 
 ---
 
 ### Caso 2: Alta Sustitución Ecológica SCM (`high_scm_substitution`)
-- **Composición ($\text{kg/m}^3$):** Cemento: $160$, Escoria: $220$, Puzolana: $70$, Agua: $165$, SP: $9.0$, Ag. Grueso: $1000$, Ag. Fino: $740$.
+- **Composición ($\text{kg/m}^3$):** Cemento: $160.0$, Escoria: $220.0$, Ceniza volante / Puzolana (`fly_ash`): $70.0$, Agua: $165.0$, SP: $9.0$, Ag. Grueso: $1000.0$, Ag. Fino: $740.0$.
 - **Ratios Calculados:** $a/c = 1.0312$, $a/mc = 0.3667$, Sustitución SCM: $64.44\%$, Masa Total: $2364.0\text{ kg/m}^3$.
 - **Predicción a 7 días:**
   - Fachada `DualPredictionEngine`: **$27.00\text{ MPa}$**
@@ -116,14 +116,14 @@ Se evaluaron tres mezclas representativas del espectro de diseño de mezclas de 
   - Diferencia Absoluta: **$0.000000\text{ MPa}$**
 - **Latencia de Inferencia en Caliente:** **$58.62\text{ ms}$**
 - **Advertencias Emitidas por el Validador de Dominio:**
-  1. `WARN_HIGH_SCM_REPLACEMENT` (Info): Sustitución de $64.44\%$ supera la cota de referencia usual ($40\%$). Se recomienda extender período de curado húmedo.
+  1. `WARN_HIGH_SCM_REPLACEMENT` (Info): Sustitución de $64.44\%$ supera la cota de referencia usual ($40\%$). Se recomienda extender período de curado húmedo debido a la cinética puzolánica más lenta.
   2. `WARN_HIGH_WATER_CEMENT_RATIO` (Info): Relación $a/c = 1.0312$ elevada frente al cemento puro; sin embargo, $a/mc = 0.3667$ es óptima considerando los cementantes suplementarios.
 - **Paridad Numérica:** **Cumplida ($\Delta < 10^{-5}\text{ MPa}$)**.
 
 ---
 
 ### Caso 3: Patrón de Referencia Portland Puro (`reference_portland_pure`)
-- **Composición ($\text{kg/m}^3$):** Cemento: $380$, Escoria: $0$, Puzolana: $0$, Agua: $180$, SP: $4.0$, Ag. Grueso: $1020$, Ag. Fino: $760$.
+- **Composición ($\text{kg/m}^3$):** Cemento: $380.0$, Escoria: $0.0$, Ceniza volante / Puzolana (`fly_ash`): $0.0$, Agua: $180.0$, SP: $4.0$, Ag. Grueso: $1020.0$, Ag. Fino: $760.0$.
 - **Ratios Calculados:** $a/c = 0.4737$, $a/mc = 0.4737$, Sustitución SCM: $0.0\%$, Masa Total: $2344.0\text{ kg/m}^3$.
 - **Predicción a 7 días:**
   - Fachada `DualPredictionEngine`: **$35.64\text{ MPa}$**
@@ -158,24 +158,31 @@ La medición de memoria y tiempos mediante `tracemalloc` y `time.perf_counter()`
 
 - **Memoria RAM Pico Consumida:** **$251.85\text{ MB}$**  
   (Muy por debajo del límite seguro de $2000\text{ MB}$ asignado a la memoria compartida del contenedor y de los $14\text{ GiB}$ disponibles en el nodo).
-- **Memoria RAM al Finalizar:** **$250.93\text{ MB}$** (indicando ausencia de fugas de memoria tras múltiples inferencias consecutivas).
+- **Memoria RAM al Finalizar:** **$250.93\text{ MB}$**  
+  (Evidencia estabilidad del consumo de memoria en la ejecución del script acotado; la confirmación definitiva de ausencia de fugas de memoria a largo plazo requerirá pruebas de estrés continuas en la API de servicio).
 - **Latencia Promedio en Caliente:** **$60.21\text{ ms}$** por inferencia dual (7 y 28 días simultáneos).  
-  Cumple holgadamente el requerimiento no funcional **RNF-01** de latencia de servicio ($< 2000\text{ ms}$), con un margen de seguridad de más del **$97\%$**.
+  Corresponde estrictamente al tiempo de cómputo en memoria del motor de inferencia (`InferenceEngine.predict`). Deja una holgura de aproximadamente $1940\text{ ms}$ para absorber la sobrecarga de red HTTP, serialización y middleware web frente al límite máximo del SLA contractual (**RNF-01**: $< 2000\text{ ms}$).
 
 ---
 
-## 8. Interpretación Rigurosa de Resultados
+## 8. Interpretación Rigurosa de Resultados y Distinciones Técnicas
 
-De acuerdo con los principios de ingeniería MLOps, es fundamental distinguir conceptualmente los siguientes cuatro aspectos:
+De acuerdo con los principios de ingeniería de software y MLOps, se establecen las siguientes distinciones conceptuales y metodológicas:
 
-1. **Paridad del Motor de Inferencia:**  
-   Demuestra que las capas de abstracción (validación de esquemas Pydantic v2, normalización de arrays NumPy, construcción del DataFrame y ensamblado de edades) **no introducen ruido numérico, sesgos ni alteraciones algorítmicas**. La diferencia es exactamente cero.
-2. **Precisión Predictiva del Modelo:**  
-   La capacidad de generalización del modelo frente a ensayos experimentales fue certificada de manera independiente en la **Fase 4.4-B** sobre las 206 observaciones congeladas ($R^2 = 0.9121$, $\text{RMSE} = 5.0934\text{ MPa}$, $\text{MAE} = 3.6596\text{ MPa}$). La prueba actual de paridad no evalúa precisión frente al terreno, sino fidelidad de ejecución del artefacto.
-3. **Compatibilidad del Runtime:**  
-   Confirma que el binario `VotingEnsemble` deserializa de manera segura y reproducible en Linux Python 3.10 con `azureml-training-tabular` 1.61.0 y scikit-learn 1.5.1, validando la estrategia para el futuro contenedor de producción.
-4. **Rendimiento Operativo:**  
-   Garantiza que una vez que el modelo está en memoria RAM, el servicio puede responder solicitudes de inferencia dual en menos de 70 ms, haciéndolo ideal para la integración con ASP.NET MVC 5.
+1. **Paridad Numérica del Motor de Inferencia:**  
+   Demuestra que las capas de abstracción (validación de esquemas Pydantic v2, normalización de arrays NumPy, construcción del DataFrame y ensamblado de edades) **no introducen ruido numérico, sesgos ni alteraciones algorítmicas**. La diferencia frente al estimador directo es estrictamente $\Delta = 0.000000\text{ MPa}$ ($< 10^{-5}\text{ MPa}$).
+2. **Precisión Predictiva vs. Paridad de Invocación:**  
+   La capacidad predictiva del modelo frente a roturas reales fue certificada de manera independiente en la **Fase 4.4-B** (job `stoic_pot_x25ht98nv7`) sobre las 206 observaciones congeladas de prueba:
+   $$\mathbf{R^2 = 0.9121}, \quad \mathbf{\text{RMSE} = 4.7592\text{ MPa}}, \quad \mathbf{\text{MAE} = 3.2822\text{ MPa}}, \quad \mathbf{\text{NRMSE} = 0.0673}$$
+   La prueba actual de paridad no evalúa precisión frente al terreno ni reemplaza dicha evaluación previa, sino que audita la fidelidad de ejecución del artefacto en el nuevo motor.
+3. **Ámbito de Generalización Empírica:**  
+   El modelo VotingEnsemble generaliza de forma confiable dentro del dominio experimental del dataset UCI 165 (concreto de peso normal, agregados estándar, curado húmedo convencional). No debe extrapolarse sin calibración previa a concretos especiales (ligeros, pesados, autocompactantes o geopolímeros puros).
+4. **Criterios Normativos de Diseño Estructural (ACI / NTP):**  
+   El valor estimado por el modelo ($f'_{c,\text{est}}$) representa una predicción empírica de resistencia a compresión en probetas cilíndricas. **No sustituye el cálculo de resistencia promedio requerida ($f'_{cr}$) ni las tolerancias de sobrediseño estadístico estipuladas en ACI 214R / ACI 318 ni en la NTP 339.034**. Asimismo, las advertencias por alta sustitución SCM o elevada relación $a/c$ son criterios de soporte al criterio del ingeniero proyectista, quien debe verificar la durabilidad según ACI 318-19 Tabla 19.3.2.1.
+5. **Compatibilidad del Runtime:**  
+   Confirma que el binario `VotingEnsemble` deserializa de manera reproducible en Linux Python 3.10 con `azureml-training-tabular` 1.61.0 y scikit-learn 1.5.1, validando la estrategia para el futuro contenedor de producción.
+6. **Rendimiento Operativo:**  
+   Garantiza que una vez que el modelo está en memoria RAM, el servicio puede computar inferencias duales en $\approx 60\text{ ms}$, facilitando la integración con ASP.NET MVC 5.
 
 ---
 

@@ -31,7 +31,7 @@ Se evaluó la viabilidad de reproducir el entorno en un contenedor aislado local
 | **Model Asset ID** | `azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1` | Inmutable |
 | **Ruta Local** | `models/wheat_cheese_4swj34tkjn_11/model.pkl` | Presente en disco |
 | **SHA-256 Oficial** | `7eaa501c5eeb60135effb6b5861e736518ce969c47afd53727c2451083ff6388` | **Coincidencia Exacta (100%)** |
-| **Métricas Oficiales (Test 206 obs)** | $R^2 = 0.9121$, $\text{RMSE} = 5.0934\text{ MPa}$, $\text{MAE} = 3.6596\text{ MPa}$, $\text{NRMSE} = 0.0638$ | Fase 4.5 Certificada |
+| **Métricas Oficiales (Test 206 obs)** | $R^2 = 0.9121$, $\text{RMSE} = 4.7592\text{ MPa}$, $\text{MAE} = 3.2822\text{ MPa}$, $\text{NRMSE} = 0.0673$ | Fase 4.5 Certificada |
 
 ---
 
@@ -80,9 +80,9 @@ Se implementó el script `scripts/validate_real_inference.py`, diseñado para ac
    Registra el tiempo de carga e inicialización del artefacto binario en memoria RAM con precisión de microsegundos (`time.perf_counter()`).
 3. **Evaluación de Mezclas Benchmark Representativas:**
    Ejecuta la inferencia sobre tres formulaciones de concreto predefinidas que cubren el espectro de diseño:
-   - **Mezcla 1 (EcoMix Canónica):** Cemento: $350\text{ kg/m}^3$, Escoria: $100\text{ kg/m}^3$, Puzolana: $0$, Agua: $180\text{ kg/m}^3$, Superplastificante: $5\text{ kg/m}^3$, Agregado Grueso: $1000\text{ kg/m}^3$, Agregado Fino: $750\text{ kg/m}^3$.
-   - **Mezcla 2 (Alta Sustitución SCM):** Cemento: $220\text{ kg/m}^3$, Escoria: $130\text{ kg/m}^3$, Puzolana: $80\text{ kg/m}^3$, Agua: $165\text{ kg/m}^3$, Superplastificante: $8\text{ kg/m}^3$, Agregado Grueso: $980\text{ kg/m}^3$, Agregado Fino: $720\text{ kg/m}^3$.
-   - **Mezcla 3 (Portland Pura Tradicional):** Cemento: $450\text{ kg/m}^3$, Escoria: $0$, Puzolana: $0$, Agua: $195\text{ kg/m}^3$, Superplastificante: $0$, Agregado Grueso: $1050\text{ kg/m}^3$, Agregado Fino: $700\text{ kg/m}^3$.
+   - **Mezcla 1 (EcoMix Canónica - 37.08% SCM):** Cemento: $280.0\text{ kg/m}^3$, Escoria: $105.0\text{ kg/m}^3$, Ceniza volante/Puzolana (`fly_ash`): $60.0\text{ kg/m}^3$, Agua: $175.0\text{ kg/m}^3$, Superplastificante: $8.5\text{ kg/m}^3$, Agregado Grueso: $1020.0\text{ kg/m}^3$, Agregado Fino: $750.0\text{ kg/m}^3$ ($w/b = 0.3933$, $w/c = 0.6250$).
+   - **Mezcla 2 (Alta Sustitución SCM - 64.44% SCM):** Cemento: $160.0\text{ kg/m}^3$, Escoria: $220.0\text{ kg/m}^3$, Ceniza volante/Puzolana (`fly_ash`): $70.0\text{ kg/m}^3$, Agua: $165.0\text{ kg/m}^3$, Superplastificante: $9.0\text{ kg/m}^3$, Agregado Grueso: $1000.0\text{ kg/m}^3$, Agregado Fino: $740.0\text{ kg/m}^3$ ($w/b = 0.3667$, $w/c = 1.0312$).
+   - **Mezcla 3 (Patrón Portland Puro - 0% SCM):** Cemento: $380.0\text{ kg/m}^3$, Escoria: $0.0\text{ kg/m}^3$, Ceniza volante/Puzolana (`fly_ash`): $0.0\text{ kg/m}^3$, Agua: $180.0\text{ kg/m}^3$, Superplastificante: $4.0\text{ kg/m}^3$, Agregado Grueso: $1020.0\text{ kg/m}^3$, Agregado Fino: $760.0\text{ kg/m}^3$ ($w/b = 0.4737$, $w/c = 0.4737$).
 4. **Verificación de Paridad Absoluta (Motor vs. Estimador Directo):**
    Compara los valores producidos por la fachada de alto nivel `DualPredictionEngine.predict()` con los resultados directos de `estimator.predict(df)` para comprobar que las transformaciones de datos y el ensamble de variables de edad no introducen sesgos ni discrepancias numéricas ($|\Delta| < 10^{-5}\text{ MPa}$).
 5. **Persistencia Estructurada:**
