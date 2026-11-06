@@ -238,7 +238,7 @@ def test_validate_real_inference_script_execution_local(tmp_path):
     )
 
     assert report_data["project"] == "ecomix-ia-ml"
-    assert report_data["phase"] == "5.4-A"
+    assert report_data["phase"] in ("5.4-A", "5.4-B")
     assert report_data["model_artifact"]["sha256_verified"] is True
     assert report_data["model_artifact"]["sha256"] == OFFICIAL_MODEL_SHA256
     assert report_data["overall_status"] == "PENDING_COMPATIBLE_RUNTIME"

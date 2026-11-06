@@ -25,6 +25,7 @@ import os
 import platform
 import sys
 import time
+import tracemalloc
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -110,11 +111,12 @@ def run_validation(
     """
     Ejecuta el protocolo completo de validación contra el modelo real.
     """
+    tracemalloc.start()
     start_time = time.perf_counter()
     report: Dict[str, Any] = {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "project": "ecomix-ia-ml",
-        "phase": "5.4-A",
+        "phase": "5.4-B",
         "environment_diagnostics": {
             "python_version": sys.version,
             "platform": platform.platform(),
@@ -124,6 +126,7 @@ def run_validation(
         "model_artifact": {},
         "cold_start_metrics": {},
         "benchmark_results": [],
+        "resource_usage": {},
         "overall_status": "FAILED",
     }
 
@@ -191,6 +194,7 @@ def run_validation(
         }
         print(f" Cold-Start Load Time: {t_load_elapsed:.2f} ms [MODELO CARGADO EN RAM]")
     except IncompatibleRuntimeError as rt_err:
+        tracemalloc.stop()
         report["cold_start_metrics"] = {
             "status": "INCOMPATIBLE_RUNTIME",
             "message": str(rt_err),
@@ -208,6 +212,7 @@ def run_validation(
         print(f" Reporte de diagnóstico generado en: {out_file}")
         return report
     except Exception as ex:
+        tracemalloc.stop()
         report["cold_start_metrics"] = {
             "status": "LOAD_FAILED",
             "error": f"{type(ex).__name__}: {ex}",
@@ -240,8 +245,11 @@ def run_validation(
         direct_7d = round(float(raw_direct[0]), 2)
         direct_28d = round(float(raw_direct[1]), 2)
 
-        parity_7d = math.isclose(resp.predictions.strength_7d_mpa, direct_7d, abs_tol=1e-4)
-        parity_28d = math.isclose(resp.predictions.strength_28d_mpa, direct_28d, abs_tol=1e-4)
+        diff_7d = abs(float(resp.predictions.strength_7d_mpa) - direct_7d)
+        diff_28d = abs(float(resp.predictions.strength_28d_mpa) - direct_28d)
+
+        parity_7d = (diff_7d < 1e-5)
+        parity_28d = (diff_28d < 1e-5)
 
         case_passed = (
             parity_7d
@@ -266,6 +274,9 @@ def run_validation(
                 "strength_7d_mpa": direct_7d,
                 "strength_28d_mpa": direct_28d,
             },
+            "absolute_diff_7d_mpa": diff_7d,
+            "absolute_diff_28d_mpa": diff_28d,
+            "parity_threshold_met_1e5": (diff_7d < 1e-5 and diff_28d < 1e-5),
             "numerical_parity_verified": (parity_7d and parity_28d),
             "mix_ratios": resp.mix_ratios.model_dump(),
             "warnings_emitted": [w.model_dump() for w in resp.warnings],
@@ -275,20 +286,28 @@ def run_validation(
         report["benchmark_results"].append(case_record)
 
         print(f" Caso [{cid}]:")
-        print(f"   * Resistencia 7 días:  {resp.predictions.strength_7d_mpa:.2f} MPa (Directo: {direct_7d:.2f} MPa)")
-        print(f"   * Resistencia 28 días: {resp.predictions.strength_28d_mpa:.2f} MPa (Directo: {direct_28d:.2f} MPa)")
-        print(f"   * Paridad Numérica:    {'[OK - IDÉNTICA]' if (parity_7d and parity_28d) else '[DISCREPANCIA]'}")
+        print(f"   * Resistencia 7 días:  {resp.predictions.strength_7d_mpa:.2f} MPa (Directo: {direct_7d:.2f} MPa, Dif: {diff_7d:.6f})")
+        print(f"   * Resistencia 28 días: {resp.predictions.strength_28d_mpa:.2f} MPa (Directo: {direct_28d:.2f} MPa, Dif: {diff_28d:.6f})")
+        print(f"   * Paridad Numérica:    {'[OK - IDÉNTICA (< 1e-5 MPa)]' if (parity_7d and parity_28d) else '[DISCREPANCIA]'}")
         print(f"   * Latencia Inferencia: {t_inf_elapsed:.2f} ms")
         print(f"   * Ratios:              w/b={resp.mix_ratios.water_binder_ratio}, SCM={resp.mix_ratios.scm_replacement_percentage}%")
         print(f"   * Advertencias:        {len(resp.warnings)} emitidas")
 
     total_elapsed = (time.perf_counter() - start_time) * 1000.0
+    current_mem, peak_mem = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+
+    report["resource_usage"] = {
+        "peak_memory_mb": round(peak_mem / (1024 * 1024), 2),
+        "current_memory_mb": round(current_mem / (1024 * 1024), 2),
+        "total_execution_ms": round(total_elapsed, 2),
+    }
     report["total_execution_ms"] = round(total_elapsed, 2)
     report["overall_status"] = "SUCCESS" if all_cases_passed else "FAILED"
 
     print("-" * 70)
     print(f" Estado Final: {'[VALIDADO CON VOTINGENSEMBLE REAL]' if all_cases_passed else '[FALLIDO]'}")
-    print(f" Tiempo Total de Ejecución: {total_elapsed:.2f} ms")
+    print(f" Tiempo Total de Ejecución: {total_elapsed:.2f} ms (RAM pico: {report['resource_usage']['peak_memory_mb']} MB)")
     print("=" * 70)
 
     # 4. Guardar reporte JSON si se especifica directorio
