@@ -138,3 +138,21 @@ def reset_settings() -> None:
     """Reinicia la instancia de configuración (útil para pruebas unitarias)."""
     global _settings
     _settings = None
+
+
+def generate_secure_api_key(length_bytes: int = 32) -> str:
+    """
+    Genera un secreto criptográficamente seguro codificado en hexadecimal (256 bits de entropía)
+    para su uso como ECOMIX_API_KEY en entornos de producción.
+    """
+    import secrets
+    return secrets.token_hex(length_bytes)
+
+
+if __name__ == "__main__":
+    import sys
+    if "--generate-key" in sys.argv:
+        print(generate_secure_api_key())
+    else:
+        current = get_settings()
+        print(f"EcoMix IA Settings: {current}")

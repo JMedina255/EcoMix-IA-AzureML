@@ -78,11 +78,22 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
                     headers={"Content-Type": "application/problem+json", "X-Request-ID": request_id},
                 )
 
-        # 3. Control de cuerpo sobredimensionado cuando falta Content-Length (ej. chunked transfer)
+        # 3. Control de cuerpo sobredimensionado mediante lectura incremental acotada
+        # Previene ataques DoS por agotamiento de RAM al no acumular flujos ilimitados
         if request.method in ("POST", "PUT", "PATCH"):
-            # Leer el cuerpo en memoria; Starlette lo cachea internamente en request._body
-            body = await request.body()
-            if len(body) > settings.max_request_body_bytes:
+            max_bytes = settings.max_request_body_bytes
+            body_chunks = []
+            bytes_received = 0
+            is_oversized = False
+
+            async for chunk in request.stream():
+                bytes_received += len(chunk)
+                if bytes_received > max_bytes:
+                    is_oversized = True
+                    break
+                body_chunks.append(chunk)
+
+            if is_oversized:
                 return JSONResponse(
                     status_code=413,
                     content={
@@ -90,14 +101,17 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
                         "title": "Cuerpo de Solicitud Excesivo",
                         "status": 413,
                         "detail": (
-                            f"El cuerpo de la solicitud ({len(body)} bytes) "
-                            f"excede el límite permitido de {settings.max_request_body_bytes} bytes."
+                            f"El cuerpo de la solicitud supera el límite permitido de {max_bytes} bytes "
+                            f"(recepción interrumpida tras procesar {bytes_received} bytes)."
                         ),
                         "instance": str(request.url.path),
                         "request_id": request_id,
                     },
                     headers={"Content-Type": "application/problem+json", "X-Request-ID": request_id},
                 )
+
+            # Reinyectar el cuerpo leído en el caché interno de Starlette para consumo downstream
+            request._body = b"".join(body_chunks)
 
         # 4. Validación de Content-Type en endpoints de inferencia
         if request.method in ("POST", "PUT", "PATCH") and request.url.path.startswith("/api/v1/predict"):

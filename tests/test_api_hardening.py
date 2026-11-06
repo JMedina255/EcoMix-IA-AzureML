@@ -300,3 +300,16 @@ def test_production_mode_disables_openapi_and_docs():
     # Endpoint raíz no expone enlace a documentación en producción
     root_data = client_prod.get("/").json()
     assert "Desactivado en producción" in root_data["docs"]
+
+
+def test_generate_secure_api_key_entropy_and_production_acceptance():
+    """Verifica la generación de claves aleatorias seguras de alta entropía para producción."""
+    from src.api.config import generate_secure_api_key
+
+    key = generate_secure_api_key(32)
+    assert isinstance(key, str)
+    assert len(key) == 64  # 32 bytes en hex = 64 chars
+    # Debe ser aceptada sin excepciones en modo producción
+    settings = ApiSettings(environment="production", api_key=key)
+    assert settings.api_key == key
+    assert len(settings.get_valid_api_keys()) == 1

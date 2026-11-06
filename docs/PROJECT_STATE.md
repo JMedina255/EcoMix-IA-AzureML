@@ -11,8 +11,8 @@
 - **Identificador del Proyecto:** `ecomix-ia-ml`
 - **Repositorio:** `JMedina255/EcoMix-IA-AzureML`
 - **Rama Principal:** `main`
-- **Fase Actual:** `5.6-A — Consolidación documental y cierre de evaluación`
-- **Próximo Hito Autorizado:** `Fase 5.6-A — Endurecimiento de API y preparación para contenedorización`
+- **Fase Actual:** `5.6-B — Consolidación documental y cierre de evaluación`
+- **Próximo Hito Autorizado:** `Fase 5.6-B — Verificación del contenedor de inferencia real y plan de despliegue ACA`
 - **Última Validación Registrada:** `2026-11-06` (Origen: *Azure ML Studio & Workspace Telemetry (Job stoic_pot_x25ht98nv7)*)
 
 ---

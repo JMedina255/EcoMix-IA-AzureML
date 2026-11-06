@@ -2,8 +2,8 @@
   "project_id": "ecomix-ia-ml",
   "repository": "JMedina255/EcoMix-IA-AzureML",
   "default_branch": "main",
-  "current_phase": "5.6-A",
-  "next_authorized_milestone": "Fase 5.6-A — Endurecimiento de API y preparación para contenedorización",
+  "current_phase": "5.6-B",
+  "next_authorized_milestone": "Fase 5.6-B — Verificación del contenedor de inferencia real y plan de despliegue ACA",
   "last_validation": {
     "date": "2026-11-06",
     "origin": "Azure ML Studio & Workspace Telemetry (Job stoic_pot_x25ht98nv7)",
@@ -100,8 +100,14 @@
     },
     "fase_5_6_a": {
       "name": "Endurecimiento DevSecOps y Preparacion de Contenedor",
-      "status": "in_progress",
+      "status": "completed",
       "script": "src/api/config.py",
+      "evidence": "Blindaje DevSecOps completado: mitigacion de timing attacks (secrets.compare_digest), prohibicion de claves publicas, aislamiento por instancia, control de flujo incremental en middleware, y 14 pruebas de endurecimiento aprobadas (commit 174c6dc)."
+    },
+    "fase_5_6_b": {
+      "name": "Verificacion de Contenedor y Plan de Despliegue ACA",
+      "status": "in_progress",
+      "script": "docker/Dockerfile",
       "evidence": "En ejecucion en rama fix/phase-05-api-hardening."
     },
     "fase_6": {

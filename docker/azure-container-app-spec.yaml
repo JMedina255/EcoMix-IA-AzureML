@@ -90,13 +90,16 @@ spec:
             mountPath: /app/models
 
     scale:
-      minReplicas: 1 # Zero Cold Start: Al menos 1 réplica activa (Always On)
-      maxReplicas: 3 # Escalado horizontal ante alta concurrencia
+      # Política de Ahorro Presupuestario (Azure for Students - Límite USD 20):
+      # minReplicas=0 apaga automáticamente el cómputo en periodos de inactividad,
+      # facturando únicamente por los segundos de ejecución activa durante pruebas.
+      minReplicas: 0
+      maxReplicas: 1 # Acotado a una sola instancia para control estricto de costos
       rules:
         - name: http-scaling-rule
           http:
             metadata:
-              concurrentRequests: "50"
+              concurrentRequests: "20"
 
     volumes:
       - name: azure-model-volume
