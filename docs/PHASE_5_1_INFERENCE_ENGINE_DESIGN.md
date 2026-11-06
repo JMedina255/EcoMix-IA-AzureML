@@ -107,11 +107,13 @@ En las plantas de premezclado y obras civiles, el ingeniero ingresa la dosificac
 
 ### 4.2 Esquema JSON de Solicitud (Request Contract)
 
-**Endpoint Futuro:** `POST /api/v1/predict/concrete-strength`
+**Especificación Contractual:** `POST /api/v1/predict/concrete-strength`
+
+> [!NOTE]
+> El campo `$schema` no es obligatorio en las solicitudes emitidas por clientes HTTP (como ASP.NET MVC 5 con `HttpClient` y `Newtonsoft.Json` / `System.Text.Json`). El esquema se documenta en OpenAPI/JSON Schema para consulta y validación formal de interfaces.
 
 ```json
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "mix_design": {
     "cement": 280.0,
     "blast_furnace_slag": 105.0,
@@ -120,39 +122,20 @@ En las plantas de premezclado y obras civiles, el ingeniero ingresa la dosificac
     "superplasticizer": 8.5,
     "coarse_aggregate": 1020.0,
     "fine_aggregate": 750.0
-  },
-  "options": {
-    "include_sustainability": true,
-    "include_safety_margin": true,
-    "custom_unit_costs": {
-      "cement_pen_kg": 0.45,
-      "slag_pen_kg": 0.22,
-      "fly_ash_pen_kg": 0.18,
-      "water_pen_kg": 0.005,
-      "superplasticizer_pen_kg": 3.80,
-      "coarse_agg_pen_kg": 0.045,
-      "fine_agg_pen_kg": 0.040
-    }
   }
 }
 ```
 
 ### 4.3 Esquema JSON de Respuesta Exitosa (Response Contract - HTTP 200)
 
+Las salidas de resistencia del contrato son inicialmente **predicciones puntuales determinísticas** a 7 y 28 días. No se incluyen intervalos de confianza al 95 % sin una calibración estadística formal y empíricamente validada (ej. regresión conforme o cuantílica). Asimismo, la sostenibilidad, costos y optimización quedan fuera del alcance de la Fase 5.2 y se integrarán modularmente en fases posteriores.
+
 ```json
 {
   "status": "success",
   "predictions": {
     "strength_7d_mpa": 24.18,
-    "strength_28d_mpa": 38.65,
-    "recommended_design_strength_28d_mpa": 44.24,
-    "safety_margin_applied_mpa": 5.59,
-    "confidence_intervals": {
-      "strength_7d_lower_95": 19.01,
-      "strength_7d_upper_95": 29.35,
-      "strength_28d_lower_95": 33.06,
-      "strength_28d_upper_95": 44.24
-    }
+    "strength_28d_mpa": 38.65
   },
   "mix_ratios": {
     "water_cement_ratio": 0.625,
@@ -160,16 +143,6 @@ En las plantas de premezclado y obras civiles, el ingeniero ingresa la dosificac
     "total_cementitious_content_kg_m3": 445.0,
     "scm_replacement_percentage": 37.08,
     "aggregates_total_kg_m3": 1770.0
-  },
-  "sustainability": {
-    "embodied_carbon_kg_co2e_m3": 272.45,
-    "reference_carbon_kg_co2e_m3": 405.00,
-    "carbon_savings_kg_co2e_m3": 132.55,
-    "carbon_savings_percentage": 32.73,
-    "estimated_cost_pen_m3": 235.80,
-    "reference_cost_pen_m3": 285.50,
-    "cost_savings_pen_m3": 49.70,
-    "cost_savings_percentage": 17.41
   },
   "warnings": [
     {
@@ -182,8 +155,7 @@ En las plantas de premezclado y obras civiles, el ingeniero ingresa la dosificac
     "model_id": "wheat_cheese_4swj34tkjn_11",
     "model_type": "VotingEnsemble",
     "model_sha256": "7eaa501c5eeb60135effb6b5861e736518ce969c47afd53727c2451083ff6388",
-    "inference_timestamp": "2026-11-06T15:20:00Z",
-    "latency_ms": 8.42
+    "inference_timestamp": "2026-11-06T15:20:00Z"
   }
 }
 ```
@@ -254,71 +226,67 @@ sequenceDiagram
 
 ## 6. Verificaciones de Rango y Detección de Dominio (Out-of-Domain - OOD)
 
-El validador categoriza las restricciones en dos niveles:
+Para evitar rechazar mezclas válidas en obra y al mismo tiempo proteger la fiabilidad de las predicciones del modelo, el sistema separa estrictamente los **errores físicos y de formato** (restricciones duras) de las **advertencias por extrapolación del modelo** (restricciones blandas). Los límites del dataset UCI 165 reflejan el espacio muestral del entrenamiento, pero no constituyen prohibiciones físicas universales de la tecnología del concreto.
 
-### 6.1 Restricciones Duras (Rechazo con HTTP 422)
-Insumos fuera de los límites absolutos del dataset UCI 165 o con proporciones físicamente inviables:
+### 6.1 Restricciones Duras: Errores Físicos y de Formato (Rechazo HTTP 422)
+Se rechazan de forma inmediata e intransigente aquellas solicitudes con datos matemáticamente inválidos o físicamente imposibles:
 
-| Variable | Mínimo Permitido ($\text{kg/m}^3$) | Máximo Permitido ($\text{kg/m}^3$) | Justificación de Ingeniería |
-| :--- | :---: | :---: | :--- |
-| `cement` | $102.0$ | $540.0$ | Límite inferior para cohesión de pasta; superior evita figuración térmica. |
-| `blast_furnace_slag` | $0.0$ | $359.4$ | Límite experimental máximo ensayado en laboratorio. |
-| `fly_ash` | $0.0$ | $200.1$ | Límite experimental para puzolanas clase F / C. |
-| `water` | $121.8$ | $247.0$ | Contenido de agua libre para hidratación y trabajabilidad. |
-| `superplasticizer` | $0.0$ | $32.2$ | Dosis máxima admisible antes de retardo severo de fraguado. |
-| `coarse_aggregate` | $801.0$ | $1145.0$ | Esqueleto granular grueso para soporte volumétrico. |
-| `fine_aggregate` | $594.0$ | $992.6$ | Contenido de arena para empaquetamiento granular. |
-| **Relación $a/mc$** | $\mathbf{0.25}$ | $\mathbf{0.70}$ | Relaciones fuera de este rango son físicamente defectuosas. |
-| **Volumen Total** | $\approx 950\text{ dm}^3$ | $\approx 1050\text{ dm}^3$ | La suma de volúmenes absolutos debe aproximar a $1\text{ m}^3$ ($1000\text{ L}$). |
+1. **Valores negativos:** La masa de cualquier insumo no puede ser menor a cero ($M_i < 0$).
+2. **Valores no numéricos, NaN o infinitos:** Todo insumo debe ser un número real finito representable.
+3. **Componentes requeridos ausentes:** La carga útil debe especificar los 7 insumos de la mezcla.
+4. **Denominadores nulos en ratios críticos:**
+   - Contenido cementante total ($M_{\text{cemento}} + M_{\text{escoria}} + M_{\text{ceniza}} = 0$). No se puede formar pasta de concreto sin material cementante.
+   - Masa total de agregados ($M_{\text{grueso}} + M_{\text{fino}} = 0$).
+5. **Incoherencias físicas documentadas de dosificación:**
+   - Agua nula o desproporcionada ($M_{\text{agua}} < 50.0\text{ kg/m}^3$ o $M_{\text{agua}} > 350.0\text{ kg/m}^3$).
+   - Relación agua/material cementante físicamente absurda ($a/mc < 0.15$ o $a/mc > 1.20$).
+   - Masa volumétrica total fuera del rango físico de concreto convencional de peso normal ($\sum M_i < 1800.0\text{ kg/m}^3$ o $\sum M_i > 2800.0\text{ kg/m}^3$).
 
-### 6.2 Restricciones Blandas (Advertencias Informativas en HTTP 200)
-- **$a/mc > 0.55$:** *«Relación agua/cementante elevada para concreto estructural. Verifique requisitos de durabilidad para exposición a sulfatos (NTP 334.090 / ACI 318).»*
-- **Sustitución $\text{SCM} > 45\%$:** *«Alto nivel de sustitución ecológica. Se anticipa desarrollo lento de resistencia a edades menores a 7 días.»*
-- **`superplasticizer` $> 15\text{ kg/m}^3$ sin reducción de agua:** *«Dosis elevada de aditivo sin disminución proporcional de agua de mezclado. Riesgo potencial de exudación o segregación.»*
+### 6.2 Restricciones Blandas: Advertencias de Dominio OOD (HTTP 200 con Warnings)
+Cuando una mezcla es físicamente admisible pero se ubica fuera del hipervolumen experimental observado en UCI 165, el servicio procesa la inferencia pero adjunta advertencias estructuradas señalando el riesgo de extrapolación estadística:
+
+| Variable / Parámetro | Rango Observado UCI 165 | Código de Advertencia | Justificación y Criterio MLOps |
+| :--- | :---: | :--- | :--- |
+| `cement` | $[102.0, 540.0]\text{ kg/m}^3$ | `WARN_OOD_CEMENT` | Extrapolación del contenido de clínker frente al dataset de entrenamiento. |
+| `blast_furnace_slag` | $[0.0, 359.4]\text{ kg/m}^3$ | `WARN_OOD_SLAG` | Dosificación de escoria de alto horno superior al máximo registrado en UCI 165. |
+| `fly_ash` | $[0.0, 200.1]\text{ kg/m}^3$ | `WARN_OOD_FLY_ASH` | Dosificación de ceniza volante/puzolana superior al límite experimental ensayado. |
+| `water` | $[121.8, 247.0]\text{ kg/m}^3$ | `WARN_OOD_WATER` | Contenido de agua fuera de la ventana observada; posible dispersión en la predicción de consistencia. |
+| `superplasticizer` | $[0.0, 32.2]\text{ kg/m}^3$ | `WARN_OOD_SUPERPLASTICIZER` | Dosis de aditivo reductor de agua de alto rango fuera del dominio experimental. |
+| `coarse_aggregate` | $[801.0, 1145.0]\text{ kg/m}^3$ | `WARN_OOD_COARSE_AGG` | Esqueleto granular grueso fuera de los límites de empaquetamiento de UCI 165. |
+| `fine_aggregate` | $[594.0, 992.6]\text{ kg/m}^3$ | `WARN_OOD_FINE_AGG` | Contenido de arena fuera de los rangos ensayados. |
+| **Relación $a/mc$** | $[0.25, 0.70]$ | `WARN_OOD_WATER_BINDER_RATIO` | Relación $w/b$ fuera del rango típico de calibración del modelo. |
+| **Sustitución SCM** | $> 40\%$ | `WARN_HIGH_SCM_REPLACEMENT` | Alto nivel de sustitución ecológica; activación puzolánica lenta a edades tempranas. |
 
 ---
 
-## 7. Modelado de Sostenibilidad y Costos (FD02 y FD03)
+## 7. Modelado de Sostenibilidad y Costos (Diferido a Fases Posteriores)
 
-El módulo `sustainability.py` calcula el ahorro ambiental y económico sin alterar el pipeline predictivo:
+> [!NOTE]
+> Los módulos de sostenibilidad, huella de carbono ($\text{kg CO}_2\text{e/m}^3$), costos en Soles (PEN) y optimización matemática **quedan formalmente fuera del alcance de la Fase 5.2**. Se implementarán y probarán de manera desacoplada en fases posteriores.
 
-### 7.1 Fórmulas Analíticas
-
-#### Huella de Carbono del Concreto ($\text{kg CO}_2\text{e/m}^3$):
+### 7.1 Fórmulas Analíticas Preliminares (FD02 y FD03)
+Para referencia técnica de las fases futuras, la huella de carbono se modela analíticamente mediante factores de emisión certificados ($EF_i$), sin intervenir en los pesos de los árboles de regresión:
 $$\text{CO}_2\text{e}_{\text{mezcla}} = \sum_{i=1}^{n} M_i \times EF_i$$
 
-Donde $M_i$ es la masa del componente $i$ en $\text{kg/m}^3$ y $EF_i$ es su factor de emisión:
-- Cemento Portland Tipo I: $EF_{\text{cemento}} = 0.860\text{ kg CO}_2\text{e/kg}$
-- Escoria de alto horno (GGBFS): $EF_{\text{escoria}} = 0.082\text{ kg CO}_2\text{e/kg}$
-- Ceniza volante / Puzolana: $EF_{\text{ceniza}} = 0.027\text{ kg CO}_2\text{e/kg}$
-- Agua: $EF_{\text{agua}} = 0.0002\text{ kg CO}_2\text{e/kg}$
-- Agregados (grueso y fino): $EF_{\text{agregados}} = 0.004\text{ kg CO}_2\text{e/kg}$
-- Superplastificante: $EF_{\text{aditivo}} = 0.720\text{ kg CO}_2\text{e/kg}$
-
-#### Ahorro Porcentual de Carbono:
-$$\Delta\text{CO}_2\text{e} (\%) = \frac{\text{CO}_2\text{e}_{\text{ref}} - \text{CO}_2\text{e}_{\text{mezcla}}}{\text{CO}_2\text{e}_{\text{ref}}} \times 100$$
-*(Donde la mezcla de referencia sustituye los SCMs por 100% Cemento Portland equivalente).*
-
 ---
 
-## 8. Criterio de Sobrediseño y Márgenes de Seguridad (ACI PRC-211.1-22 / 214R)
+## 8. Criterio de Sobrediseño y Desacoplamiento de Incertidumbre Predictiva
 
-Dado que la evaluación oficial certificó un RMSE a 28 días de **$5.59\text{ MPa}$**:
-- **Riesgo:** Una mezcla diseñada para una resistencia nominal $f'_c = 30\text{ MPa}$ podría, debido a la dispersión experimental del modelo, entregar $25\text{ MPa}$.
-- **Mitigación Arquitectónica:**  
-  El servicio calcula la **resistencia promedio requerida ($f'_{cr}$)** inspirada en la filosofía de ACI 214R / ACI PRC-211.1-22:
-  $$f'_{cr} = f'_c + k \cdot s$$
-  Donde $s$ adopta el valor de $\text{RMSE}_{28d} = 5.59\text{ MPa}$ y $k = 1.0$ (margen de seguridad estándar para dosificación preliminar).
-- La interfaz ASP.NET MVC 5 presentará tanto la resistencia estimada cruda como el valor de diseño recomendado con margen de seguridad.
+> [!IMPORTANT]
+> **Aclaración Metodológica y Normativa:**
+> - El RMSE del modelo predictivo ($5.59\text{ MPa}$ a 28 días) es una métrica de dispersión del algoritmo de Machine Learning; **no constituye un margen automático de sobrediseño estructural**.
+> - En la práctica de la ingeniería civil (normas ACI 318 y ACI 214R), la resistencia promedio requerida ($f'_{cr}$) se calcula a partir de la desviación estándar histórica de probetas cilíndricas ensayadas en obra/laboratorio, no del error cuadrático medio de un modelo matemático.
+> - **No se atribuirán fórmulas de sobrediseño a normas ACI sin evidencia normativa directa y documentada.**
+> - Tampoco se ofrecerán intervalos de confianza al 95 % sin una calibración estadística formalmente validada (ej. métodos de *Conformal Prediction* o *Quantile Regression*).
+> - Por tanto, las salidas de resistencia del contrato son **predicciones puntuales objetivas**: $f'_{c, 7d}$ y $f'_{c, 28d}$. El ingeniero responsable evaluará la dispersión reportada en el dossier técnico.
 
 ---
 
 ## 9. Requisitos de Rendimiento, Seguridad y Despliegue en Azure
 
-### 9.1 Rendimiento y SLAs
-- **Tiempo de Inferencia Pura:** $< 15\text{ ms}$ en CPU mono-hilo.
-- **Tiempo de Respuesta HTTP Total:** $< 80\text{ ms}$ (red local/VNet).
-- **Consumo de Memoria:** $< 250\text{ MB}$ por worker en reposo; $< 350\text{ MB}$ en pico.
+### 9.1 Rendimiento y Objetivos de Diseño
+- **Latencia de Inferencia y Respuesta HTTP:** Las metas teóricas preliminares ($< 20\text{ ms}$ de inferencia, $< 80\text{ ms}$ de respuesta HTTP) son **objetivos de diseño sujetos a verificación empírica** mediante pruebas de carga y benchmarking en la fase de validación de rendimiento.
+- **Consumo de Memoria:** Estimado en $< 250\text{ MB}$ en reposo.
 
 ### 9.2 Seguridad y Autenticación para la API (Fase 6)
 - **Autenticación por API Key (`X-EcoMix-API-Key`):** Token compartido entre ASP.NET MVC 5 y el microservicio FastAPI.
