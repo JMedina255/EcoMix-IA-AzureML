@@ -21,6 +21,8 @@ models/
 
 # Reportes temporales locales
 reports/*.png
+*.pptx
+*.pdf
 
 # IDEs y sistemas operativos
 .vscode/
