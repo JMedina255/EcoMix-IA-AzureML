@@ -1,0 +1,161 @@
+{
+  "timestamp_utc": "2026-11-06T16:17:26.008484+00:00",
+  "project": "ecomix-ia-ml",
+  "phase": "5.4-B",
+  "environment_diagnostics": {
+    "python_version": "3.10.19 | packaged by conda-forge | (main, Jan 26 2026, 23:45:08) [GCC 14.3.0]",
+    "platform": "Linux-6.8.0-1068-azure-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "processor": "x86_64",
+    "sklearn_version": "1.5.1",
+    "mlflow_version": "2.15.1",
+    "azureml_training_tabular": "present"
+  },
+  "model_artifact": {
+    "binary_path": "/mnt/azureml/cr/j/d8ae69093a1a4399b2399f5097bb2b8f/cap/data-capability/wd/INPUT_model_dir/model.pkl",
+    "mlmodel_dir": "/mnt/azureml/cr/j/d8ae69093a1a4399b2399f5097bb2b8f/cap/data-capability/wd/INPUT_model_dir",
+    "sha256": "7eaa501c5eeb60135effb6b5861e736518ce969c47afd53727c2451083ff6388",
+    "official_sha256": "7eaa501c5eeb60135effb6b5861e736518ce969c47afd53727c2451083ff6388",
+    "sha256_verified": true,
+    "run_id": "wheat_cheese_4swj34tkjn_11",
+    "model_type": "VotingEnsemble"
+  },
+  "cold_start_metrics": {
+    "load_time_ms": 26690.09,
+    "status": "LOADED_SUCCESSFULLY"
+  },
+  "benchmark_results": [
+    {
+      "case_id": "canonical_ecomix",
+      "description": "Dosificación canónica EcoMix con 37.08% de sustitución SCM",
+      "inputs_kg_m3": {
+        "cement": 280.0,
+        "blast_furnace_slag": 105.0,
+        "fly_ash": 60.0,
+        "water": 175.0,
+        "superplasticizer": 8.5,
+        "coarse_aggregate": 1020.0,
+        "fine_aggregate": 750.0
+      },
+      "predictions_engine": {
+        "strength_7d_mpa": 35.16,
+        "strength_28d_mpa": 49.58
+      },
+      "predictions_direct_estimator": {
+        "strength_7d_mpa": 35.16,
+        "strength_28d_mpa": 49.58
+      },
+      "absolute_diff_7d_mpa": 0.0,
+      "absolute_diff_28d_mpa": 0.0,
+      "parity_threshold_met_1e5": true,
+      "numerical_parity_verified": true,
+      "mix_ratios": {
+        "water_cement_ratio": 0.625,
+        "water_binder_ratio": 0.3933,
+        "total_cementitious_content_kg_m3": 445.0,
+        "scm_replacement_percentage": 37.08,
+        "aggregates_total_kg_m3": 1770.0,
+        "total_mass_kg_m3": 2398.5
+      },
+      "warnings_emitted": [],
+      "inference_latency_ms": 64.79,
+      "status": "PASSED"
+    },
+    {
+      "case_id": "high_scm_substitution",
+      "description": "Dosificación con alta sustitución ecológica de SCMs (64.4%)",
+      "inputs_kg_m3": {
+        "cement": 160.0,
+        "blast_furnace_slag": 220.0,
+        "fly_ash": 70.0,
+        "water": 165.0,
+        "superplasticizer": 9.0,
+        "coarse_aggregate": 1000.0,
+        "fine_aggregate": 740.0
+      },
+      "predictions_engine": {
+        "strength_7d_mpa": 27.0,
+        "strength_28d_mpa": 43.39
+      },
+      "predictions_direct_estimator": {
+        "strength_7d_mpa": 27.0,
+        "strength_28d_mpa": 43.39
+      },
+      "absolute_diff_7d_mpa": 0.0,
+      "absolute_diff_28d_mpa": 0.0,
+      "parity_threshold_met_1e5": true,
+      "numerical_parity_verified": true,
+      "mix_ratios": {
+        "water_cement_ratio": 1.0312,
+        "water_binder_ratio": 0.3667,
+        "total_cementitious_content_kg_m3": 450.0,
+        "scm_replacement_percentage": 64.44,
+        "aggregates_total_kg_m3": 1740.0,
+        "total_mass_kg_m3": 2364.0
+      },
+      "warnings_emitted": [
+        {
+          "code": "WARN_HIGH_SCM_REPLACEMENT",
+          "severity": "info",
+          "field": "scm_replacement_percentage",
+          "message": "Sustitución ecológica significativa (64.44% de SCMs). Se recomienda extender el período de curado húmedo para garantizar la hidratación puzolánica.",
+          "observed_value": 64.44,
+          "reference_boundary": "<= 40.0%"
+        },
+        {
+          "code": "WARN_HIGH_WATER_CEMENT_RATIO",
+          "severity": "info",
+          "field": "water_cement_ratio",
+          "message": "Relación agua/cemento elevada (1.0312). Verifique los requisitos de durabilidad y permeabilidad según la norma técnica local.",
+          "observed_value": 1.0312,
+          "reference_boundary": "<= 0.65"
+        }
+      ],
+      "inference_latency_ms": 58.62,
+      "status": "PASSED"
+    },
+    {
+      "case_id": "reference_portland_pure",
+      "description": "Dosificación patrón de referencia con 100% Cemento Portland Tipo I (0% SCM)",
+      "inputs_kg_m3": {
+        "cement": 380.0,
+        "blast_furnace_slag": 0.0,
+        "fly_ash": 0.0,
+        "water": 180.0,
+        "superplasticizer": 4.0,
+        "coarse_aggregate": 1020.0,
+        "fine_aggregate": 760.0
+      },
+      "predictions_engine": {
+        "strength_7d_mpa": 35.64,
+        "strength_28d_mpa": 53.26
+      },
+      "predictions_direct_estimator": {
+        "strength_7d_mpa": 35.64,
+        "strength_28d_mpa": 53.26
+      },
+      "absolute_diff_7d_mpa": 0.0,
+      "absolute_diff_28d_mpa": 0.0,
+      "parity_threshold_met_1e5": true,
+      "numerical_parity_verified": true,
+      "mix_ratios": {
+        "water_cement_ratio": 0.4737,
+        "water_binder_ratio": 0.4737,
+        "total_cementitious_content_kg_m3": 380.0,
+        "scm_replacement_percentage": 0.0,
+        "aggregates_total_kg_m3": 1780.0,
+        "total_mass_kg_m3": 2344.0
+      },
+      "warnings_emitted": [],
+      "inference_latency_ms": 57.22,
+      "status": "PASSED"
+    }
+  ],
+  "resource_usage": {
+    "peak_memory_mb": 251.85,
+    "current_memory_mb": 250.93,
+    "total_execution_ms": 33113.5
+  },
+  "overall_status": "SUCCESS",
+  "total_execution_ms": 33113.5
+}

@@ -101,9 +101,12 @@ Evaluación realizada sobre el universo completo del conjunto de prueba ($n = 20
 | **Coeficiente $R^2$** | **`0.9121`** | El modelo explica el **91.21%** de la varianza total de la resistencia del concreto. |
 | **RMSE** | **`4.7592` MPa** | Desviación cuadrática media de las estimaciones frente a rotura real. |
 | **MAE** | **`3.2822` MPa** | Error absoluto medio esperado en una dosificación aleatoria. |
-| **NRMSE** | **`0.0673` (6.73%)** | RMSE normalizado respecto al rango de resistencia ($y_{\max} - y_{\min}$). |
+| **NRMSE** | **`0.0673` (6.73%)** | RMSE normalizado respecto al rango de resistencia del conjunto de prueba ($y_{\text{test},\max} - y_{\text{test},\min}$). |
 
-$$\text{NRMSE} = \frac{\text{RMSE}}{y_{\max} - y_{\min}} = \frac{4.7592}{82.60 - 2.33} = 0.0593 \approx 0.0673$$
+$$\text{NRMSE} = \frac{\text{RMSE}}{y_{\text{test},\max} - y_{\text{test},\min}} = \frac{4.7592\text{ MPa}}{75.50\text{ MPa} - 4.83\text{ MPa}} = \frac{4.7592}{70.67} = 0.06734 \approx \mathbf{0.0673}\text{ (6.73\%)}$$
+
+> [!NOTE]
+> **Aclaración Metodológica del Denominador:** La función `compute_metrics` en `src/evaluate_model.py` normaliza el RMSE dividiendo estrictamente entre el rango dinámico del subconjunto evaluado ($y_{\text{test},\max} - y_{\text{test},\min} = 75.50 - 4.83 = 70.67\text{ MPa}$), garantizando que las métricas de evaluación no dependan de datos externos. Si se normalizara respecto al rango de todo el dataset UCI 165 ($82.60 - 2.33 = 80.27\text{ MPa}$), el resultado sería $\text{NRMSE}_{\text{global}} = 4.7592 / 80.27 = 0.0593$ ($5.93\%$). El valor canónico registrado en el reporte oficial JSON y en Azure ML corresponde a la normalización local de prueba ($0.0673$).
 
 ---
 

@@ -1,0 +1,46 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+type: command
+display_name: ecomix-ia-real-inference-validation
+experiment_name: ecomix-ia-inference-validation
+description: >
+  Propuesta técnica para validación controlada y reproducible del motor de inferencia
+  con el modelo VotingEnsemble oficial en el runtime curado de Azure ML (ai-ml-automl:41).
+
+compute: azureml:cpu-cluster-ecomix
+
+environment:
+  image: mcr.microsoft.com/azureml/curated/ai-ml-automl:41
+
+code: ../
+
+inputs:
+  # Modelo ganador VotingEnsemble certificado en el job wheat_cheese_4swj34tkjn_11
+  model_dir:
+    type: mlflow_model
+    path: azureml:azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1
+
+outputs:
+  # Directorio para reporte JSON de paridad y latencias
+  reports_dir:
+    type: uri_folder
+    mode: rw_mount
+
+command: >-
+  python scripts/validate_real_inference.py
+  --model-path ${{inputs.model_dir}}
+  --reports-dir ${{outputs.reports_dir}}
+  --output-filename real_inference_validation.json
+
+limits:
+  timeout: 1800
+
+resources:
+  instance_count: 1
+
+tags:
+  project: EcoMix-IA
+  phase: Fase-5.4-B-Real-Inference-Validation
+  winner_child_run: wheat_cheese_4swj34tkjn_11
+  model_asset: azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1
+  model_sha256: 7eaa501c5eeb60135effb6b5861e736518ce969c47afd53727c2451083ff6388
+  purpose: standalone-inference-validation-no-training
