@@ -163,16 +163,17 @@ def validate_state_consistency(status_data: Dict[str, Any], root_dir: Path = PRO
 def render_markdown_state(status_data: Dict[str, Any], root_dir: Path = PROJECT_ROOT) -> str:
     """
     Genera el contenido Markdown de docs/PROJECT_STATE.md de forma determinística e idempotente.
-    NO incluye timestamps ni hashes dinámicos en el texto generado para evitar loops infinitos de Git.
+    Deriva las secciones declarativamente a partir de status_data sin textos estáticos obsoletos.
+    NO incluye timestamps ni hashes volátiles locales para evitar dirty state en Git.
     """
     proj_id = status_data.get("project_id", "ecomix-ia-ml")
     repo = status_data.get("repository", "JMedina255/EcoMix-IA-AzureML")
     branch = status_data.get("default_branch", "main")
-    curr_phase = status_data.get("current_phase", "4.3")
-    next_milestone = status_data.get("next_authorized_milestone", "4.4")
+    curr_phase = status_data.get("current_phase", "6.4")
+    next_milestone = status_data.get("next_authorized_milestone", "Fase 6.1 — Integración con Plataforma Web ASP.NET MVC 5")
     last_val = status_data.get("last_validation", {})
-    val_date = last_val.get("date", "2026-10-30")
-    val_origin = last_val.get("origin", "Azure ML Studio & Workspace Telemetry")
+    val_date = last_val.get("date", "2026-11-08")
+    val_origin = last_val.get("origin", "Azure Container Apps & Inferencia Real en la Nube")
 
     exp = status_data.get("azure_experiment", {})
     job_id = exp.get("job_id", "wheat_cheese_4swj34tkjn")
@@ -187,7 +188,7 @@ def render_markdown_state(status_data: Dict[str, Any], root_dir: Path = PROJECT_
     model_size = model_asset.get("model_size_bytes", 670849)
     train_env = exp.get("training_environment", {})
     curated_img = train_env.get("curated_image", "mcr.microsoft.com/azureml/curated/ai-ml-automl:41")
-    py_ver = train_env.get("python_version", "3.9 / 3.10")
+    py_ver = train_env.get("python_version", "3.10.19")
 
     phases = status_data.get("phases", {})
     open_issues = status_data.get("open_issues", [])
@@ -200,8 +201,8 @@ def render_markdown_state(status_data: Dict[str, Any], root_dir: Path = PROJECT_
         "blocked": "⛔ Bloqueado"
     }
 
-    curr_phase_key = f"fase_{curr_phase.replace('.', '_')}"
-    curr_phase_name = phases.get(curr_phase_key, {}).get("name", "Consolidación documental y cierre de evaluación")
+    curr_phase_key = f"fase_{curr_phase.replace('.', '_').replace('-', '_')}"
+    curr_phase_name = phases.get(curr_phase_key, {}).get("name", "Cierre documental y preparación para integración MVC")
 
     lines = [
         "# Estado Vivo del Proyecto — EcoMix IA (Azure ML)",
@@ -229,7 +230,7 @@ def render_markdown_state(status_data: Dict[str, Any], root_dir: Path = PROJECT_
         "| :---: | :--- | :---: | :--- | :--- |"
     ]
 
-    phase_order = [
+    phase_keys_order = [
         ("fase_1", "1"),
         ("fase_2", "2"),
         ("fase_3", "3"),
@@ -239,17 +240,34 @@ def render_markdown_state(status_data: Dict[str, Any], root_dir: Path = PROJECT_
         ("fase_4_4", "4.4"),
         ("fase_4_5", "4.5"),
         ("fase_5", "5"),
-        ("fase_6", "6"),
+        ("fase_5_6_a", "5.6-A"),
+        ("fase_5_6_b", "5.6-B"),
+        ("fase_5_6_c", "5.6-C"),
+        ("fase_6_4", "6.4"),
+        ("fase_6_1", "6.1"),
         ("fase_7", "7"),
     ]
 
-    for p_key, p_num in phase_order:
-        p_info = phases.get(p_key, {})
-        p_name = p_info.get("name", "")
-        p_status = status_icons.get(p_info.get("status", "pending"), "🟡 Pendiente")
-        p_script = p_info.get("script", "")
-        p_evidence = p_info.get("evidence", "")
-        lines.append(f"| **{p_num}** | {p_name} | {p_status} | `{p_script}` | {p_evidence} |")
+    seen_keys = set()
+    for p_key, p_num in phase_keys_order:
+        if p_key in phases:
+            seen_keys.add(p_key)
+            p_info = phases[p_key]
+            p_name = p_info.get("name", "")
+            p_status = status_icons.get(p_info.get("status", "pending"), "🟡 Pendiente")
+            p_script = p_info.get("script", "")
+            p_evidence = p_info.get("evidence", "")
+            lines.append(f"| **{p_num}** | {p_name} | {p_status} | `{p_script}` | {p_evidence} |")
+
+    # Si existen fases adicionales no contempladas en el orden estándar
+    for p_key, p_info in phases.items():
+        if p_key not in seen_keys:
+            p_num = p_key.replace("fase_", "").replace("_", ".")
+            p_name = p_info.get("name", "")
+            p_status = status_icons.get(p_info.get("status", "pending"), "🟡 Pendiente")
+            p_script = p_info.get("script", "")
+            p_evidence = p_info.get("evidence", "")
+            lines.append(f"| **{p_num}** | {p_name} | {p_status} | `{p_script}` | {p_evidence} |")
 
     lines.extend([
         "",
@@ -271,6 +289,28 @@ def render_markdown_state(status_data: Dict[str, Any], root_dir: Path = PROJECT_
         "- **Modelo en Catálogo Manual:** Ninguno registrado manualmente en catálogo (activo local de workspace).",
         "- **Entorno de Entrenamiento Original:**  ",
         f"  Imagen Curada: `{curated_img}` (Python {py_ver}).",
+    ])
+
+    cloud_dep = status_data.get("cloud_deployment")
+    if cloud_dep:
+        lines.extend([
+            "",
+            "### 3.1 Despliegue Operativo en la Nube (Azure Container Apps)",
+            "",
+            f"- **Servicio Cloud:** `{cloud_dep.get('service', 'Azure Container Apps (ACA)')}`",
+            f"- **Perfil de Cómputo:** `{cloud_dep.get('compute_profile', 'Serverless Consumption')}`",
+            f"- **Aplicación:** `{cloud_dep.get('app_name', 'ca-ecomix-inference-api')}` (Región: `{cloud_dep.get('region', 'chilecentral')}`)",
+            f"- **Registro e Imagen:** `{cloud_dep.get('image', 'crecomixprod.azurecr.io/ecomix-ml-inference:1.0.0')}`",
+            f"- **Digest OCI:** `{cloud_dep.get('image_digest', 'sha256:...')}`",
+            f"- **Identidad Administrada:** `{cloud_dep.get('managed_identity', 'id-ecomix-aca')}` (Rol RBAC: `{cloud_dep.get('rbac_role', 'AcrPull')}`)",
+            f"- **Dimensionamiento y Escala:** `{cloud_dep.get('resources', '1.0 vCPU, 2.0 GiB RAM')}` | `{cloud_dep.get('scale_policy', 'minReplicas = 0, maxReplicas = 1')}`",
+            f"- **Estimador Activo:** `{cloud_dep.get('active_estimator', 'VotingEnsemble')}`",
+            f"- **Hash SHA-256 Verificado:** `{cloud_dep.get('model_sha256', '')}`",
+            f"- **Latencias Observadas:** Arranque en frío (cold start): ~{cloud_dep.get('cold_start_observed_seconds', 8.4)} s | Inferencia en caliente: ~{cloud_dep.get('typical_warm_latency_ms', 248)} ms",
+            f"- **Costo Incurrido:** USD {cloud_dep.get('cost_incurred_usd', 0.00):.2f} (Dentro de cuota gratuita ACA)"
+        ])
+
+    lines.extend([
         "",
         "---",
         "",
@@ -290,9 +330,11 @@ def render_markdown_state(status_data: Dict[str, Any], root_dir: Path = PROJECT_
             lines.append(f"- **Recomendación:** {issue['recommendation']}")
         lines.append("")
 
-    total_tests = verified_tests.get("total_tests", 22)
+    total_tests = verified_tests.get("total_tests", 177)
     test_suite = verified_tests.get("suite", "pytest")
     test_files = verified_tests.get("test_files", [])
+    local_status = verified_tests.get("local_status", f"{total_tests} pruebas pasando localmente.")
+    ci_status = verified_tests.get("ci_status", "Pendiente de confirmación por GitHub Actions.")
 
     lines.extend([
         "---",
@@ -300,9 +342,9 @@ def render_markdown_state(status_data: Dict[str, Any], root_dir: Path = PROJECT_
         "## 5. Pruebas y Cobertura Verificada",
         "",
         f"- **Suite de Pruebas:** `{test_suite} tests/ -v`",
-        f"- **Total de Pruebas:** {total_tests} pruebas automatizadas recopiladas.",
-        "- **Resultado en CI (GitHub Actions) y Clones Limpios:** 85 pasando y 3 omitidas (`pytest.skip`).",
-        "- **Justificación de las 3 Omisiones en CI:** Los modelos binarios entrenados (`models/model.pkl`) no se versionan en Git por gobernanza, seguridad y límite de peso del repositorio. Por ende, las 3 pruebas que requieren deserializar el artefacto real descargado se omiten limpiamente, mientras que las 85 pruebas de firma, contratos de interfaz, desacoplamiento y modelos sintéticos pasan al 100%. En el equipo de desarrollo local con el modelo descargado, pasan las 88 pruebas al 100%.",
+        f"- **Total de Pruebas Automatizadas:** {total_tests} pruebas recopiladas.",
+        f"- **Resultado en Entorno Local:** {local_status}",
+        f"- **Resultado en CI (GitHub Actions):** {ci_status}",
         "- **Archivos de Prueba:**"
     ])
     for tf in test_files:
@@ -314,27 +356,29 @@ def render_markdown_state(status_data: Dict[str, Any], root_dir: Path = PROJECT_
         "",
         "## 6. Distinción Entre Hechos Comprobados y Plan de Ejecución",
         "",
-        "### Hechos Comprobados y Pasos Completados",
-        "1. **Partición de Datos:** Congelada deterministicamente en 824 registros para entrenamiento y 206 para prueba (`data/processed/concrete_test.csv`, SHA-256 canónico: `6484d9f1493ca19ada7c7ec32ebf0a7015bcb1773605b2de428ff1b5a889026b`).",
-        f"2. **Entrenamiento AutoML:** El job `{job_id}` produjo un modelo ganador `{winner_algo}` con NRMSE de `{metric_val}`.",
-        f"3. **Inspección y Descarga del Artefacto (Completadas):** El activo `{model_asset_name}:{model_asset_ver}` se descarga selectivamente mediante `ml_client.models.download` ({model_size:,} bytes).",
-        "4. **Verificación de Firma y Metadatos (Completada):** Se validó que el artefacto declare estrictamente las 8 variables predictoras sin requerir deserialización (`scripts/verify_model_load.py --signature-only`).",
-        "5. **Desacoplamiento de Runtime (Completado):** Eliminación de dependencias del SDK Azure ML (`azure-ai-ml`) en la ruta crítica de inferencia mediante importaciones diferidas (`from __future__ import annotations` y `TYPE_CHECKING`), permitiendo ejecución transparente en contenedores curados limpios.",
-        "6. **Evaluación Independiente en la Nube (Fase 4.4 - Completada):** Job `stoic_pot_x25ht98nv7` ejecutado exitosamente en Azure ML sobre clúster `cpu-cluster-ecomix` (`Standard_DS3_v2`) en 2m 35s. 206 observaciones evaluadas (100% exitosas) obteniendo: $R^2 = 0.9121$, RMSE = 4.7592 MPa, MAE = 3.2822 MPa, NRMSE = 0.0673. En subconjunto sin solapamiento (195 muestras): $R^2 = 0.9174$, RMSE = 4.587 MPa. A 7d: $R^2 = 0.8841$, RMSE = 5.1725 MPa. A 28d: $R^2 = 0.8235$, RMSE = 5.5930 MPa.",
-        "7. **Consolidación de Reportes y Trazabilidad (Fase 4.5 - Completada):** Métricas oficiales almacenadas en `reports/evaluation_wheat_cheese_4swj34tkjn.json`, gráfico de correlación en `reports/evaluation_wheat_cheese_4swj34tkjn_plot.png` e informe técnico integral en `docs/EVALUATION_REPORT.md`.",
-        f"8. **Suite Automatizada de Pruebas:** {total_tests} pruebas automatizadas recopiladas (85 pasando y 3 omitidas en CI por exclusión de binarios en Git; 100% pasando localmente con modelo descargado).",
-        "",
-        "### Plan de Ejecución y Tareas Pendientes",
-        "1. **Fase 5 — Módulo de Inferencia EcoMix (7d y 28d + Ahorro CO2):**",
-        "   - Implementación de `src/inference.py` para consumo desde la plataforma web ASP.NET MVC 5.",
-        "   - Validación de dominios de entrada para las 8 variables predictoras según límites del dataset UCI 165.",
-        "   - Estimación dual a 7 y 28 días con cálculo analítico de reducción de huella de carbono (kg CO2e/m³) y costo (S/./m³).",
-        "   - Incorporación de márgenes de seguridad de sobrediseño inspirados en ACI PRC-211.1-22 y ACI 214R debido a la dispersión observada a 28 días.",
-        "2. **Fase 6 — API de Inferencia (FastAPI):** Exposición de microservicio REST autenticado y desacoplado.",
-        "3. **Fase 7 — Simulador Interactivo (Streamlit UI):** Interfaz para ingeniería de mezclas ecológicas.",
-        ""
+        "### Hechos Comprobados y Pasos Completados"
     ])
 
+    completed = status_data.get("completed_milestones", [])
+    if completed:
+        for idx, item in enumerate(completed, start=1):
+            lines.append(f"{idx}. {item}")
+    else:
+        lines.append("1. Documentación base inicial del repositorio.")
+
+    lines.extend([
+        "",
+        "### Plan de Ejecución y Tareas Pendientes"
+    ])
+
+    pending = status_data.get("pending_tasks", [])
+    if pending:
+        for idx, item in enumerate(pending, start=1):
+            lines.append(f"{idx}. {item}")
+    else:
+        lines.append("1. Próximos pasos a definir.")
+
+    lines.append("")
     return "\n".join(lines)
 
 

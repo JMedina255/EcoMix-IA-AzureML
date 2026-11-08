@@ -115,7 +115,7 @@ En estricto cumplimiento de las directrices MLOps:
 
 ## 6. Estrategia de Pruebas y Resultados
 
-Se diseñó e implementó la suite [`tests/test_inference_engine_and_loader.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/tests/test_inference_engine_and_loader.py) con **17 pruebas exhaustivas**:
+Se diseñó e implementó la suite [`tests/test_inference_engine_and_loader.py`](../tests/test_inference_engine_and_loader.py) con **17 pruebas exhaustivas**:
 
 1. **Firma y Vectorización:** Verificación del orden exacto de las 8 variables y generación de las dos edades (7 y 28 días) con tipos canónicos `float64` e `int64`.
 2. **Integridad SHA-256:** Verificación exitosa del hash oficial del binario y rechazo controlado con `ModelIntegrityError` ante bytes alterados.

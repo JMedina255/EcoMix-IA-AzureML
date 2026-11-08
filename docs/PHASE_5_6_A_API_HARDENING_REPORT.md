@@ -99,7 +99,7 @@ Se diseñó la arquitectura para empaquetar el microservicio de inferencia en un
 
 ## 4. Resultados de Pruebas Automatizadas
 
-Se construyó la suite [`tests/test_api_hardening.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/tests/test_api_hardening.py) con 14 pruebas específicas de DevSecOps, ejecutándose en conjunto con la suite existente:
+Se construyó la suite [`tests/test_api_hardening.py`](../tests/test_api_hardening.py) con 14 pruebas específicas de DevSecOps, ejecutándose en conjunto con la suite existente:
 
 | Suite de Pruebas | Archivo | Pruebas | Estado |
 |---|---|---|---|

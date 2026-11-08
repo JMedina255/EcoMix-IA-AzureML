@@ -31,7 +31,7 @@ docker version
 
 ## 2. Auditoría y Correcciones al Dockerfile
 
-Se revisó y optimizó la definición en [`docker/Dockerfile`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/docker/Dockerfile):
+Se revisó y optimizó la definición en [`docker/Dockerfile`](../docker/Dockerfile):
 
 ```dockerfile
 FROM mcr.microsoft.com/azureml/curated/ai-ml-automl:41
@@ -130,7 +130,7 @@ Se evaluaron tres arquitecturas para proveer el artefacto certificado (SHA-256: 
 
 ## 5. Endurecimiento de Flujo HTTP (Protección contra DoS por Memoria)
 
-Se perfeccionó el middleware ASGI en [`src/api/middleware.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/src/api/middleware.py) para implementar **lectura incremental acotada**:
+Se perfeccionó el middleware ASGI en [`src/api/middleware.py`](../src/api/middleware.py) para implementar **lectura incremental acotada**:
 
 ```python
 # Control de cuerpo sobredimensionado mediante lectura incremental acotada
@@ -174,7 +174,7 @@ if request.method in ("POST", "PUT", "PATCH"):
 
 ## 6. Generación de Credenciales de Producción
 
-Se añadió en [`src/api/config.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/src/api/config.py) la utilidad criptográfica `generate_secure_api_key()`:
+Se añadió en [`src/api/config.py`](../src/api/config.py) la utilidad criptográfica `generate_secure_api_key()`:
 
 ```bash
 # Comando CLI directo para generación de credencial segura
@@ -214,7 +214,7 @@ python -m src.api.config --generate-key
 
 ## 8. Especificación Declarativa Final para ACA (`minReplicas=0`)
 
-En [`docker/azure-container-app-spec.yaml`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/docker/azure-container-app-spec.yaml) se fijó la configuración de escalado a cero:
+En [`docker/azure-container-app-spec.yaml`](../docker/azure-container-app-spec.yaml) se fijó la configuración de escalado a cero:
 
 ```yaml
     scale:

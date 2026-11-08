@@ -68,7 +68,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1 -Install
 ```bash
 python3 scripts/doctor.py
 ```
-El script [`scripts/doctor.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/scripts/doctor.py) evalúa los 4 sub-entornos:
+El script [`scripts/doctor.py`](../scripts/doctor.py) evalúa los 4 sub-entornos:
 - **Desarrollo:** Versión de Python, Git, Pytest, Pandas, Scikit-learn.
 - **Azure ML:** Estado de `config.json`, SDK e Identity.
 - **Evaluación:** Dataset de prueba (`data/processed/concrete_test.csv`) y modelos descargados.

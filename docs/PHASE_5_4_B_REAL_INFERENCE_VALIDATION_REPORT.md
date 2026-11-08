@@ -20,7 +20,7 @@ VALIDADO CON MODELO REAL
 ```
 
 ### Síntesis del Veredicto
-El nuevo motor de inferencia de **EcoMix IA** ([`src/inference/`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/src/inference/)) ha sido **validado experimentalmente de forma exitosa en el runtime certificado de Microsoft Azure Machine Learning**, utilizando el artefacto binario original del modelo `VotingEnsemble` (Child Run `wheat_cheese_4swj34tkjn_11`).
+El nuevo motor de inferencia de **EcoMix IA** ([`src/inference/`](../src/inference/)) ha sido **validado experimentalmente de forma exitosa en el runtime certificado de Microsoft Azure Machine Learning**, utilizando el artefacto binario original del modelo `VotingEnsemble` (Child Run `wheat_cheese_4swj34tkjn_11`).
 
 Se demostró una **paridad numérica absoluta** ($\Delta = 0.000000\text{ MPa}$, estrictamente menor al umbral contractual de $10^{-5}\text{ MPa}$) entre la fachada desacoplada de inferencia y la invocación directa del estimador, con latencias de inferencia dual en caliente de **57 a 65 ms** y un consumo máximo de memoria RAM de **251.85 MB**.
 
@@ -189,10 +189,10 @@ De acuerdo con los principios de ingeniería de software y MLOps, se establecen 
 ## 9. Artefactos Generados y Preservados
 
 1. **Reporte JSON Oficial:**  
-   [`reports/real_inference_validation.json`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/reports/real_inference_validation.json) (recuperado íntegramente del output `reports_dir` del job `serene_spinach_sn7khxvkq7`).
+   [`reports/real_inference_validation.json`](../reports/real_inference_validation.json) (recuperado íntegramente del output `reports_dir` del job `serene_spinach_sn7khxvkq7`).
 2. **Especificación del Job de Azure ML:**  
-   [`config/azure_inference_job.yml`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/config/azure_inference_job.yml).
+   [`config/azure_inference_job.yml`](../config/azure_inference_job.yml).
 3. **Script Reproducible de Validación:**  
-   [`scripts/validate_real_inference.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/scripts/validate_real_inference.py).
+   [`scripts/validate_real_inference.py`](../scripts/validate_real_inference.py).
 4. **Suite de Pruebas Automatizadas:**  
-   [`tests/test_inference_runtime_and_job.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/tests/test_inference_runtime_and_job.py).
+   [`tests/test_inference_runtime_and_job.py`](../tests/test_inference_runtime_and_job.py).

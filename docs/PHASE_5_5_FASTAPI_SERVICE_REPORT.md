@@ -454,7 +454,7 @@ namespace EcoMixIA.Web.Services
 
 ## 7. Resultados de Pruebas Automatizadas
 
-Se diseñó e implementó la suite completa de pruebas de integración para la API en [`tests/test_api_service.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/tests/test_api_service.py), validando 18 escenarios críticos:
+Se diseñó e implementó la suite completa de pruebas de integración para la API en [`tests/test_api_service.py`](../tests/test_api_service.py), validando 18 escenarios críticos:
 
 ```
 tests/test_api_service.py::test_liveness_probe_returns_200 PASSED                    [  5%]

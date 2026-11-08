@@ -20,7 +20,8 @@ lightgbm>=4.3.0
 xgboost>=2.0.0
 
 # --- 4. Servicios Web y Visualización (Fases 6 y 7) ---
-fastapi>=0.110.0
+fastapi>=0.115.6
+starlette>=0.41.3
 uvicorn>=0.30.0
 pydantic>=2.7.0
 streamlit>=1.35.0

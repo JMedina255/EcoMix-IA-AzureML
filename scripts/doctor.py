@@ -270,8 +270,8 @@ def diagnose_inference(base_dir: Path) -> Dict[str, Any]:
     actions = []
 
     if not inference_script.exists():
-        failures.append("Script 'src/inference.py' aún no implementado (Planificado para Fase 5).")
-        actions.append("Completar Fase 4 antes de implementar el módulo de inferencia multivariable.")
+        failures.append("Script 'src/inference.py' no disponible para inferencia.")
+        actions.append("Verificar la presencia de 'src/inference.py' para inferencia multivariable.")
 
     if not model_exists:
         failures.append("Modelo local no disponible para inferencia offline.")
@@ -384,7 +384,7 @@ def print_dashboard(report: Dict[str, Any]) -> None:
     inf = envs["inference"]
     print(f"\n 4. Entorno para Inferencia:     {format_status(inf['ready'])}")
     det = inf["details"]
-    print(f"    * Script:     {'Presente' if det['inference_script_exists'] else 'Pendiente (Fase 5)'}")
+    print(f"    * Script:     {'Presente' if det['inference_script_exists'] else 'Ausente'}")
     print(f"    * Docker:     {'Disponible (Daemon activo)' if det['docker_running'] else ('Instalado (Daemon inactivo)' if det['docker_available'] else 'No disponible')}")
     if inf["failures"]:
         print("    [!] Observaciones:")
