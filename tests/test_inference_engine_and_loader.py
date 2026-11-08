@@ -115,7 +115,11 @@ def test_model_loader_singleton_identity():
 def test_model_loader_sha256_verification_success_on_certified_artifact():
     """Verifica que el artefacto binario certificado coincida con el hash oficial."""
     loader = ModelLoader.get_instance()
-    bin_path, _, _ = loader.resolve_artifact()
+    try:
+        bin_path, _, _ = loader.resolve_artifact()
+    except ModelNotFoundError:
+        pytest.skip("Modelo real no descargado en models/ (normal en CI sin artefactos binarios versionados)")
+
     assert bin_path.exists()
 
     actual_hash = loader.compute_sha256(bin_path)
@@ -151,6 +155,11 @@ def test_model_loader_raises_incompatible_runtime_error_on_real_automl():
     (Python 3.13 sin azureml-training-tabular) lance IncompatibleRuntimeError de forma controlada.
     """
     loader = ModelLoader.get_instance()
+    try:
+        loader.resolve_artifact()
+    except ModelNotFoundError:
+        pytest.skip("Modelo real no descargado en models/ (normal en CI sin artefactos binarios versionados)")
+
     with pytest.raises(IncompatibleRuntimeError) as exc_info:
         loader.load_model()
 
@@ -292,6 +301,8 @@ def test_engine_normalizes_multidimensional_prediction_arrays(canonical_mix):
 def test_get_model_status_reports_accurate_diagnostics():
     """Verifica que la función get_model_status reporte el estado real del artefacto en disco."""
     status = get_model_status()
+    if not status["artifact_exists_on_disk"]:
+        pytest.skip("Modelo real no descargado en models/ (normal en CI sin artefactos binarios versionados)")
     assert isinstance(status, dict)
     assert status["is_loaded"] is False
     assert status["artifact_exists_on_disk"] is True
@@ -319,6 +330,9 @@ def test_predict_concrete_strength_facade_function(canonical_mix):
 
 def test_cli_check_flag_executes_successfully():
     """Verifica que 'python src/inference.py --check' audite el artefacto sin deserializar."""
+    st = get_model_status()
+    if not st["artifact_exists_on_disk"]:
+        pytest.skip("Modelo real no descargado en models/ (normal en CI sin artefactos binarios versionados)")
     import subprocess
     import sys
 
@@ -337,6 +351,9 @@ def test_cli_check_flag_executes_successfully():
 
 def test_cli_status_flag_outputs_valid_json():
     """Verifica que 'python src/inference.py --status' emita JSON auditable."""
+    st = get_model_status()
+    if not st["artifact_exists_on_disk"]:
+        pytest.skip("Modelo real no descargado en models/ (normal en CI sin artefactos binarios versionados)")
     import json
     import subprocess
     import sys
