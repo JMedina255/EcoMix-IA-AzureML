@@ -4,7 +4,6 @@
 [![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![Azure ML](https://img.shields.io/badge/Azure%20ML-AutoML%20v2-0078D4.svg)](https://azure.microsoft.com/services/machine-learning/)
 [![Azure Container Apps](https://img.shields.io/badge/Azure%20Container%20Apps-chilecentral-blueviolet.svg)](https://azure.microsoft.com/products/container-apps)
-[![Licencia](https://img.shields.io/badge/licencia-MIT-green.svg)](LICENSE)
 
 Sistema de Machine Learning y microservicio cloud para la predicción de resistencia a la compresión ($f'_c$ en MPa) a **7 y 28 días** en mezclas de concreto convencionales y ecológicas, optimizando la incorporación de materiales cementantes suplementarios (escoria de alto horno y cenizas volantes).
 
@@ -152,7 +151,8 @@ El microservicio se encuentra desplegado y validado operativamente en **Azure Co
 * **Comportamiento Operativo:**
   * **Cold Start (Arranque en frío):** ~8.4 segundos (tiempo de provisión de réplica y carga en memoria del `VotingEnsemble` de 670 KB).
   * **Latencia en Caliente (Warm):** **~248 ms** (promedio en 3 llamadas consecutivas HTTPS).
-  * **Costo Acumulado:** USD 0.00 (amparado en la cuota mensual gratuita de ACA).
+  * **Costo Computacional en Reposo:** USD 0.00 (Scale-to-Zero habilitado, amparado en la cuota mensual gratuita de ACA de 180,000 vCPU-s y 360,000 GiB-s).
+  * **Costo Fijo de Infraestructura:** Registro Azure Container Registry (ACR) SKU Basic facturable a ~USD 0.167/día (~USD 5.00/mes) para almacenamiento de la imagen de producción.
 
 ---
 
@@ -170,10 +170,14 @@ Sonda de preparación que verifica que el modelo real esté cargado y su hash SH
   ```json
   {
     "status": "ready",
-    "model_loaded": true,
-    "is_synthetic": false,
+    "service": "ecomix-ia-ml-api",
+    "model_ready": true,
+    "environment": "production",
+    "model_id": "azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1",
+    "model_type": "VotingEnsemble",
     "model_sha256": "7eaa501c5eeb60135effb6b5861e736518ce969c47afd53727c2451083ff6388",
-    "algorithm": "RegressionPipeline"
+    "is_synthetic": false,
+    "timestamp": "2026-11-08T15:30:00.000000+00:00"
   }
   ```
 
@@ -197,13 +201,26 @@ Endpoint predictivo dual protegido con `X-API-Key`.
 * **Respuesta Exitosa (HTTP 200):**
   ```json
   {
-    "success": true,
-    "prediction_7d_mpa": 21.96,
-    "prediction_28d_mpa": 31.15,
-    "water_cement_ratio": 0.643,
-    "total_binder_kg_m3": 280.0,
-    "effective_replacement_ratio": 0.0,
-    "warnings": []
+    "status": "success",
+    "predictions": {
+      "strength_7d_mpa": 21.96,
+      "strength_28d_mpa": 31.15
+    },
+    "mix_ratios": {
+      "water_cement_ratio": 0.643,
+      "water_binder_ratio": 0.643,
+      "total_cementitious_content_kg_m3": 280.0,
+      "scm_replacement_percentage": 0.0,
+      "aggregates_total_kg_m3": 1800.0,
+      "total_mass_kg_m3": 2260.0
+    },
+    "warnings": [],
+    "metadata": {
+      "model_id": "wheat_cheese_4swj34tkjn_11",
+      "model_type": "VotingEnsemble",
+      "model_sha256": "7eaa501c5eeb60135effb6b5861e736518ce969c47afd53727c2451083ff6388",
+      "inference_timestamp": "2026-11-08T15:30:00.000000+00:00"
+    }
   }
   ```
 

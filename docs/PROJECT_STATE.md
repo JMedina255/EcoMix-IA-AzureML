@@ -68,7 +68,7 @@ Los siguientes datos corresponden a la telemetría oficial de Azure ML Workspace
 - **Estimador Activo:** `RegressionPipeline (VotingEnsemble real, is_synthetic: false)`
 - **Hash SHA-256 Verificado:** `7eaa501c5eeb60135effb6b5861e736518ce969c47afd53727c2451083ff6388`
 - **Latencias Observadas:** Arranque en frío (cold start): ~8.4 s | Inferencia en caliente: ~248 ms
-- **Costo Incurrido:** USD 0.00 (Dentro de cuota gratuita ACA)
+- **Costo Computacional ACA:** USD 0.00 (en reposo bajo cuota gratuita de 180k vCPU-s; costo fijo mensual de suscripción: ACR Basic ~USD 5.00/mes)
 
 ---
 
