@@ -36,8 +36,9 @@ Está dirigido al Arquitecto MLOps, Ingeniero de Soporte Cloud y a los desarroll
 
 ## ⚡ 3. Comportamiento de Escalado y Mitigación de Latencia
 
-### 3.1 Política Scale-to-Zero (`minReplicas = 0`)
-Para garantizar un **costo computacional nulo (USD 0.00)** dentro de la cuota mensual gratuita de Azure Container Apps (180,000 vCPU-segundos y 360,000 GiB-segundos), el microservicio escala automáticamente a 0 réplicas tras períodos de inactividad de solicitudes HTTP.
+### 3.1 Política Scale-to-Zero (`minReplicas = 0`) y Estructura de Costos
+* **Cómputo en Reposo:** Para garantizar un **costo computacional nulo (USD 0.00)** dentro de la cuota mensual gratuita de Azure Container Apps (180,000 vCPU-segundos y 360,000 GiB-segundos), el microservicio escala automáticamente a 0 réplicas tras períodos de inactividad de solicitudes HTTP.
+* **Costo Fijo de Infraestructura:** El registro de contenedores Azure Container Registry (ACR) en SKU Basic mantiene un costo fijo facturable de ~USD 0.167/día (~USD 5.00/mes) para el alojamiento inmutable de la imagen Docker de inferencia, independientemente de si hay réplicas activas o no.
 
 ### 3.2 Realidad del Arranque en Frío (Cold Start)
 * **Comportamiento observado:** Cuando llega una solicitud y no existen réplicas activas, Azure Container Apps aprovisiona el contenedor e inicia el proceso Uvicorn, el cual carga y valida el modelo `VotingEnsemble` de 670 KB.
@@ -93,10 +94,14 @@ El microservicio soporta **múltiples claves activas** concurrentes a través de
   ```json
   {
     "status": "ready",
-    "model_loaded": true,
-    "is_synthetic": false,
+    "service": "ecomix-ia-ml-api",
+    "model_ready": true,
+    "environment": "production",
+    "model_id": "azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1",
+    "model_type": "VotingEnsemble",
     "model_sha256": "7eaa501c5eeb60135effb6b5861e736518ce969c47afd53727c2451083ff6388",
-    "algorithm": "RegressionPipeline"
+    "is_synthetic": false,
+    "timestamp": "2026-11-08T15:30:00.000000+00:00"
   }
   ```
 
@@ -145,14 +150,21 @@ ContainerAppConsoleLogs_CL
 Si los servicios de Azure presentaran una indisponibilidad general regional:
 1. **Ejecutar la imagen localmente en el puerto 8000:**
    ```bash
-   docker run -d --name ecomix-local -p 8000:80 \
-     -e ECOMIX_ENVIRONMENT=production \
-     -e ECOMIX_API_KEY="clave-contingencia-12345" \
+   docker run -d --name ecomix-local -p 8000:8000 \
+     -e ECOMIX_ENV=production \
+     -e ECOMIX_API_KEY="<YOUR_SECURE_API_KEY_32_BYTES>" \
      crecomixprod.azurecr.io/ecomix-ml-inference:1.0.0
    ```
 2. **Reconfigurar la plataforma ASP.NET MVC 5:**  
    En `Web.config`, apuntar `EcoMixApiBaseUrl` a `http://localhost:8000/`.
-3. **Validar:**
+3. **Validar disponibilidad de la sonda:**
    ```bash
-   curl -H "X-API-Key: clave-contingencia-12345" http://localhost:8000/health/ready
+   curl -s http://localhost:8000/health/ready
+   ```
+4. **Validar inferencia protegida con API Key:**
+   ```bash
+   curl -s -X POST http://localhost:8000/api/v1/predict/concrete-strength \
+     -H "Content-Type: application/json" \
+     -H "X-API-Key: <YOUR_SECURE_API_KEY_32_BYTES>" \
+     -d '{"cement": 280.0, "blast_furnace_slag": 0.0, "fly_ash": 0.0, "water": 180.0, "superplasticizer": 0.0, "coarse_aggregate": 1050.0, "fine_aggregate": 750.0}'
    ```
