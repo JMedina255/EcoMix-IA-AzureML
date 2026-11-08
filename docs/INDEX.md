@@ -83,3 +83,5 @@ Documentación formal elaborada bajo metodología RUP / estándares EPIS para el
   *Protocolo de verificación técnica (T-15 min y T-5 min pre-calentamiento cloud) para asegurar latencia $< 2\text{ s}$ ante el jurado.*
 * [**Informe de Cierre Documental y Recuperación de CI (Fase 6.4-D)**](PHASE_6_4_D_DOCUMENTATION_CLOSURE.md)  
   *Auditoría de dependencias, solución a errores de colección de TestClient en CI, refactorización declarativa y balance antes/después.*
+* [**Informe Definitivo de Cierre y Congelamiento del Repositorio ML (Fase 6.4 Final)**](PHASE_6_4_FINAL_DOCUMENTATION_REPORT.md)
+  *Certificación técnica final, consolidación de arquitectura Mermaid, evidencia de CI verde en GitHub Actions y directrices para integración externa.*
