@@ -50,8 +50,8 @@ Al descargar e inspeccionar la imagen oficial curada `mcr.microsoft.com/azureml/
    - **NumPy:** `1.23.5` (versión exacta requerida por `azureml-training-tabular`)
    - **Pydantic:** `2.12.5`
 3. **Resolución de Conflicto en `requirements-inference.txt`:**  
-   Se ajustó [`docker/requirements-inference.txt`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/docker/requirements-inference.txt) para instalar **exclusivamente** las librerías HTTP/ASGI de la API (`fastapi==0.115.6`, `uvicorn[standard]==0.34.0`, `starlette==0.41.3`, `httpx==0.28.1`), permitiendo que el gestor `pip` respete intacto el entorno científico sin conflictos con `numpy 1.23.5`.
-4. **Actualización de Rutas en [`docker/Dockerfile`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/docker/Dockerfile):**  
+   Se ajustó [`docker/requirements-inference.txt`](../docker/requirements-inference.txt) para instalar **exclusivamente** las librerías HTTP/ASGI de la API (`fastapi==0.115.6`, `uvicorn[standard]==0.34.0`, `starlette==0.41.3`, `httpx==0.28.1`), permitiendo que el gestor `pip` respete intacto el entorno científico sin conflictos con `numpy 1.23.5`.
+4. **Actualización de Rutas en [`docker/Dockerfile`](../docker/Dockerfile):**
    Se actualizaron `PATH`, la invocación de `pip` y la sonda `HEALTHCHECK` para apuntar a `/azureml-envs/azureml-automl/bin`.
 
 ---

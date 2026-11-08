@@ -23,7 +23,7 @@ Esta evaluación independiente busca:
 
 ## 2. Características del Dataset Estándar (UCI ID 165)
 
-El modelo fue entrenado y evaluado sobre el conjunto de datos canónico de Yeh (1998), preservado inalterado en [`data/raw/concrete_raw.csv`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/data/raw/concrete_raw.csv):
+El modelo fue entrenado y evaluado sobre el conjunto de datos canónico de Yeh (1998), preservado inalterado en [`data/raw/concrete_raw.csv`](../data/raw/concrete_raw.csv):
 
 - **Total de Ensayos Experimentales:** 1.030 observaciones.
 - **Valores Nulos:** 0 en todas las variables.
@@ -64,7 +64,7 @@ El modelo corresponde a la mejor iteración identificada durante la Fase 3 del e
 
 Para garantizar reproducibilidad absoluta y eliminar discrepancias por diferencias de runtime entre plataformas (Windows vs. Linux), la evaluación se ejecutó en la nube de Azure ML:
 
-- **Especificación del Job:** [`config/azure_eval_job.yml`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/config/azure_eval_job.yml)
+- **Especificación del Job:** [`config/azure_eval_job.yml`](../config/azure_eval_job.yml)
 - **Imagen Curada Oficial:** `mcr.microsoft.com/azureml/curated/ai-ml-automl:41`
 - **Intérprete del Contenedor:** Python 3.10.19 (64-bit Linux).
 - **Librerías Críticas en Contenedor:**
@@ -82,7 +82,7 @@ Para garantizar reproducibilidad absoluta y eliminar discrepancias por diferenci
 
 ## 5. Metodología de Evaluación Independiente
 
-El proceso de evaluación implementado en [`src/evaluate_model.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/src/evaluate_model.py) operó bajo las siguientes salvaguardas de rigor metodológico:
+El proceso de evaluación implementado en [`src/evaluate_model.py`](../src/evaluate_model.py) operó bajo las siguientes salvaguardas de rigor metodológico:
 
 1. **Verificación Criptográfica Previa:** Antes de cualquier cómputo, se comprobaron los hashes SHA-256 de los datos de prueba (`6484d9f1...`), de entrenamiento (`f6a854e3...`) y del binario del modelo (`7eaa501c...`).
 2. **Aislamiento de Código:** El script fue desacoplado del SDK cliente de Azure (`azure-ai-ml`), permitiendo su ejecución nativa dentro del contenedor curado sin dependencias de administración.
@@ -145,7 +145,7 @@ Para evitar sobreestimaciones del desempeño por memorización de mezclas idént
 
 ## 9. Interpretación de Errores Predictivos
 
-Analizando los residuos ($e_i = y_i - \hat{y}_i$) en el archivo de reporte [`reports/evaluation_wheat_cheese_4swj34tkjn.json`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/reports/evaluation_wheat_cheese_4swj34tkjn.json):
+Analizando los residuos ($e_i = y_i - \hat{y}_i$) en el archivo de reporte [`reports/evaluation_wheat_cheese_4swj34tkjn.json`](../reports/evaluation_wheat_cheese_4swj34tkjn.json):
 
 1. **Rango de Error Común:** El 70% de las predicciones presenta un error absoluto menor a $3.5\text{ MPa}$, lo cual se encuentra dentro del margen de variabilidad experimental aceptado en laboratorios de control de calidad de concreto (desviación estándar típica de ensayos ASTM C39: $2.0$ a $4.0\text{ MPa}$).
 2. **Casos Atípicos (Outliers):**
@@ -167,7 +167,7 @@ Analizando los residuos ($e_i = y_i - \hat{y}_i$) en el archivo de reporte [`rep
 
 ## 11. Implicaciones para la Fase 5: Servicio de Inferencia ML
 
-La transición hacia la Fase 5 requiere estructurar un módulo de inferencia robusto ([`src/inference.py`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/src/inference.py)) que cumpla las siguientes directrices arquitectónicas:
+La transición hacia la Fase 5 requiere estructurar un módulo de inferencia robusto ([`src/inference.py`](../src/inference.py)) que cumpla las siguientes directrices arquitectónicas:
 
 ### 11.1 Responsabilidades del Servicio ML
 - Cargar el modelo deserializado de forma segura y desacoplada de la nube.

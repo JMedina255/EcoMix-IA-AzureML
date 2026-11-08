@@ -35,7 +35,7 @@ En esta revisión final se aplicaron rigurosamente las correcciones conceptuales
 
 ## 2. Auditoría del Catálogo de Evidencias Visuales
 
-Se verificaron las 7 capturas de pantalla de [`docs/evidencias-fase-6-3/`](file:///C:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA%20Sistema/docs/evidencias-fase-6-3/):
+Se verificaron las 7 capturas de pantalla de [`docs/evidencias-fase-6-3/`](evidencias-fase-6-3/):
 
 | N° | Archivo | Peso | Contenido Auténtico | Estado DevSecOps |
 |:---:|---|:---:|---|:---:|
@@ -47,17 +47,17 @@ Se verificaron las 7 capturas de pantalla de [`docs/evidencias-fase-6-3/`](file:
 | 6 | `06-resultado-peticion-http.png` | 66.4 KB | Inspección DevTools con POST 200 y JSON sanitizado | `X-API-Key: [REDACTED]` confirmado |
 | 7 | `07-azure-container-apps-estado.png` | 55.9 KB | Consola Azure CLI: `ca-ecomix-inference-api` Succeeded | 0 réplicas en reposo ($0.00 cómputo) |
 
-Trazabilidad completa documentada en [`docs/MATRIZ_EVIDENCIAS_PRESENTACION.md`](file:///C:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA%20Sistema/docs/MATRIZ_EVIDENCIAS_PRESENTACION.md).
+Trazabilidad completa documentada en [`docs/MATRIZ_EVIDENCIAS_PRESENTACION.md`](MATRIZ_EVIDENCIAS_PRESENTACION.md).
 
 ---
 
 ## 3. Paquete de Presentación Ajustado
 
 Se sincronizaron los cuatro documentos clave:
-1. [`PRESENTACION_ECOMIX_IA_AVANCE.md`](file:///C:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA%20Sistema/docs/PRESENTACION_ECOMIX_IA_AVANCE.md): Ocho diapositivas proyectables con métricas oficiales ($R^2=0.9121$, $\text{RMSE}=4.7592\text{ MPa}$, $\text{MAE}=3.2822\text{ MPa}$), alcance claro y diagramas.
-2. [`GUION_EXPOSICION_ECOMIX_IA.md`](file:///C:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA%20Sistema/docs/GUION_EXPOSICION_ECOMIX_IA.md): Guion cronometrado para exposición técnica de 3 minutos exactos (180 s) con pautas críticas para los presentadores.
-3. [`MATRIZ_EVIDENCIAS_PRESENTACION.md`](file:///C:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA%20Sistema/docs/MATRIZ_EVIDENCIAS_PRESENTACION.md): Trazabilidad cruzada entre diapositivas, capturas, componentes C#/Python, códigos HTTP y métricas oficiales.
-4. [`CHECKLIST_DEMO_ECOMIX_IA.md`](file:///C:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA%20Sistema/docs/CHECKLIST_DEMO_ECOMIX_IA.md): Protocolo preflight (T-15 min), precalentamiento cloud (T-5 min) y contingencia técnica offline.
+1. [`PRESENTACION_ECOMIX_IA_AVANCE.md`](PRESENTACION_ECOMIX_IA_AVANCE.md): Ocho diapositivas proyectables con métricas oficiales ($R^2=0.9121$, $\text{RMSE}=4.7592\text{ MPa}$, $\text{MAE}=3.2822\text{ MPa}$), alcance claro y diagramas.
+2. [`GUION_EXPOSICION_ECOMIX_IA.md`](GUION_EXPOSICION_ECOMIX_IA.md): Guion cronometrado para exposición técnica de 3 minutos exactos (180 s) con pautas críticas para los presentadores.
+3. [`MATRIZ_EVIDENCIAS_PRESENTACION.md`](MATRIZ_EVIDENCIAS_PRESENTACION.md): Trazabilidad cruzada entre diapositivas, capturas, componentes C#/Python, códigos HTTP y métricas oficiales.
+4. [`CHECKLIST_DEMO_ECOMIX_IA.md`](CHECKLIST_DEMO_ECOMIX_IA.md): Protocolo preflight (T-15 min), precalentamiento cloud (T-5 min) y contingencia técnica offline.
 
 ---
 
@@ -66,7 +66,7 @@ Se sincronizaron los cuatro documentos clave:
 El contenido de las 8 diapositivas se encuentra completamente delimitado y redactado en lenguaje de síntesis visual, ideal para transferir a una plantilla corporativa o académica en Canva:
 - Textos cortos y directos (máximo 4 bullets por lámina).
 - Métricas destacadas en tipografía grande ($R^2=0.9121$, $3.28\text{ MPa}$, $139\text{ ms}$).
-- Espacios designados para incrustar las capturas de pantalla de [`docs/evidencias-fase-6-3/`](file:///C:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA%20Sistema/docs/evidencias-fase-6-3/).
+- Espacios designados para incrustar las capturas de pantalla de [`docs/evidencias-fase-6-3/`](evidencias-fase-6-3/).
 - Diagramas de flujo y arquitectura exportables en formato vectorial/Mermaid.
 
 ---

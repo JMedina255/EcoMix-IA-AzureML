@@ -36,7 +36,7 @@ Mediante consultas estrictamente de solo lectura a través de Azure CLI, se conf
 
 ## 2. Auditoría del Dockerfile y Contexto de Construcción
 
-Se auditó minuciosamente la configuración del contenedor en [`docker/Dockerfile`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/docker/Dockerfile) y [`docker/.dockerignore`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/docker/.dockerignore):
+Se auditó minuciosamente la configuración del contenedor en [`docker/Dockerfile`](../docker/Dockerfile) y [`docker/.dockerignore`](../docker/.dockerignore):
 
 ### 2.1 Mecanismo de Suministro del Modelo Oficial (Opción C - Imagen Inmutable)
 - **Localización Local del Modelo:** `models/wheat_cheese_4swj34tkjn/model_asset_v1/azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674/mlflow-model/`
@@ -46,7 +46,7 @@ Se auditó minuciosamente la configuración del contenedor en [`docker/Dockerfil
 - **Gobernanza Git:** El archivo `.gitignore` excluye la carpeta `models/` y todos los `.pkl`, garantizando que el modelo **nunca se subirá a GitHub**.
 - **Contexto de Construcción en ACR Tasks:**
   * Al ejecutar `az acr build`, Azure CLI empaqueta el directorio local autorizado y lo sube de forma privada al ACR Task en Azure.
-  * Se configuró [`docker/.dockerignore`](file:///c:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA/docker/.dockerignore) con reglas de exclusión universales para secretos (`config.json`, `.env`), entornos virtuales (`.venv/`), caches y datasets brutos, **permitiendo explícitamente la inclusión del directorio MLflow certificado**.
+  * Se configuró [`docker/.dockerignore`](../docker/.dockerignore) con reglas de exclusión universales para secretos (`config.json`, `.env`), entornos virtuales (`.venv/`), caches y datasets brutos, **permitiendo explícitamente la inclusión del directorio MLflow certificado**.
   * La directiva `COPY models/.../mlflow-model/ /app/models/` incorpora el modelo dentro de la imagen privada en ACR. Esto elimina la necesidad de Storage Accounts, montajes de Azure Files o descargas por red en el arranque, permitiendo lectura local a velocidad de SSD y reduciendo a cero el costo de almacenamiento externo.
 
 ### 2.2 Cuota y Tamaño en ACR Basic

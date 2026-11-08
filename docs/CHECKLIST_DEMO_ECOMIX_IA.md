@@ -79,12 +79,12 @@ Si durante la sustentación falla la conexión a internet del aula o el servicio
 
 ### Protocolo de Contingencia A — Visor Interactivo Local:
 1. Abrir en el navegador local el archivo:  
-   [`C:\Users\Admin\Desktop\Proyectos\ML EcomixIA Sistema\docs-interactive\index.html`](file:///C:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA%20Sistema/docs-interactive/index.html).
+   [`C:\Users\Admin\Desktop\Proyectos\ML EcomixIA Sistema\docs-interactive\index.html`](docs-interactive/index.html).
 2. Presentar la arquitectura general interactiva, el flujo del ingeniero y la ficha técnica de los modelos.
 
 ### Protocolo de Contingencia B — Galería de Evidencias Verificadas:
 1. Proyectar directamente las capturas auténticas de alta resolución obtenidas en la Fase 6.3 ubicadas en:  
-   [`docs/evidencias-fase-6-3/`](file:///C:/Users/Admin/Desktop/Proyectos/ML%20EcomixIA%20Sistema/docs/evidencias-fase-6-3/).
+   [`docs/evidencias-fase-6-3/`](evidencias-fase-6-3/).
 2. Demostrar con las capturas `03-prediccion-convencional-completada.png` y `04-prediccion-ecologica-advertencias.png` los resultados del VotingEnsemble y la telemetría oficial de Azure.
 3. Declarar con honestidad académica:  
    *"Debido a la inestabilidad de la red del recinto, proyectamos las evidencias de ejecución obtenidas directamente durante la auditoría de integración previa en Chile Central."*
