@@ -6,6 +6,9 @@
 pytest>=8.0.0
 pytest-cov>=4.1.0
 
+# Cliente HTTP para pruebas con TestClient (FastAPI / Starlette)
+httpx==0.28.1
+
 # Utilidades de Entorno y Mocks de Pruebas
 anyio>=4.0.0
 Faker>=20.0.0

@@ -38,7 +38,7 @@ jobs:
 
       - name: Syntax check (py_compile)
         run: |
-          python -m py_compile src/prepare_data.py src/evaluate_model.py scripts/doctor.py scripts/sync_state.py scripts/check_model_runtime.py scripts/verify_model_load.py
+          python -m py_compile src/prepare_data.py src/evaluate_model.py scripts/doctor.py scripts/sync_state.py scripts/check_model_runtime.py scripts/verify_model_load.py src/api/main.py src/api/config.py src/api/dependencies.py src/api/middleware.py src/api/routes/health.py src/api/routes/prediction.py src/api/routes/model.py src/inference/engine.py src/inference/model_loader.py src/inference/schemas.py src/inference/validator.py
 
       # NOTA DE ARQUITECTURA:
       # Esta suite de CI ejecuta validaciones generales de código, contratos del Azure ML SDK,
