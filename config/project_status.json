@@ -63,7 +63,8 @@
     "model_sha256": "7eaa501c5eeb60135effb6b5861e736518ce969c47afd53727c2451083ff6388",
     "cold_start_observed_seconds": 8.4,
     "typical_warm_latency_ms": 248,
-    "cost_incurred_usd": 0.00
+    "cost_incurred_usd": 0.00,
+    "cost_notes": "USD 0.00 en cómputo ACA en reposo con Scale-to-Zero; costo fijo mensual de suscripción: Azure Container Registry Basic (~USD 5.00/mes)."
   },
   "phases": {
     "fase_1": {

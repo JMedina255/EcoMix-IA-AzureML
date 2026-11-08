@@ -48,9 +48,11 @@ Los objetivos alcanzados en esta intervención son:
    fastapi>=0.115.6
    starlette>=0.41.3
    ```
-3. En `.github/workflows/validate.yml`:
+3. En `tests/test_inference_engine_and_loader.py` y `tests/test_inference_runtime_and_job.py`:
+   Se añadieron cláusulas de omisión elegante (`pytest.skip`) en 7 pruebas que dependen de la presencia física de los binarios del modelo descargados en `models/`. En entornos de CI limpios (donde los artefactos pesados están excluidos de Git por gobernanza de `.gitignore`), estas pruebas se omiten ordenadamente (170 pasadas, 7 omitidas, exit code 0), mientras que en entornos locales con artefactos descargados se ejecutan las 177 pruebas completas al 100%.
+4. En `.github/workflows/validate.yml`:
    Se extendió el paso `py_compile` para comprobar la sintaxis de todos los módulos en `src/api/` y `src/inference/`.
-4. En `config/project_status.json`:
+5. En `config/project_status.json`:
    Se registró formalmente la incidencia `ISSUE-CI-01` en estado mitigado/resuelto.
 
 ---
@@ -100,10 +102,16 @@ Directorio maestro de navegación que indexa y clasifica la totalidad de informe
 ### 5.2 `docs/INFERENCE_OPERATIONAL_RUNBOOK.md`
 Manual técnico de operaciones para Azure Container Apps que detalla:
 * Topología serverless en `chilecentral` con Managed Identity `id-ecomix-aca`.
+* Análisis de costos transparentes: cómputo en reposo $0.00 en ACA frente a costos fijos de suscripción en Azure Container Registry (ACR) SKU Basic (~USD 5.00/mes).
 * Análisis y mitigación del cold start (~8.4 s) mediante protocolo de precalentamiento (warm-up).
 * Procedimiento de rotación segura de credenciales `X-API-Key` sin indisponibilidad de servicio.
 * Matriz de solución de incidencias HTTP (503, 401, 403, 413, 415, 422, 504).
-* Guía de contingencia offline con Docker local.
+* Guía de contingencia offline con Docker local mapeando el puerto `8000:8000`, variable `ECOMIX_ENV=production` y placeholders de claves seguros.
+
+### 5.3 Saneamiento de Contratos JSON y Licencia en `README.md`
+* Corrección de los ejemplos de respuesta de `GET /health/ready` reflejando fielmente `model_ready`, `model_type` ("VotingEnsemble") y la firma canónica.
+* Corrección del payload de respuesta de `POST /api/v1/predict/concrete-strength` alineándolo exactamente con `src/inference/schemas.py` (`status: "success"`, `predictions: { strength_7d_mpa, strength_28d_mpa }`, `mix_ratios`, `warnings`, `metadata`).
+* Retiro del badge de licencia MIT ante la inexistencia física del archivo `LICENSE` en la raíz.
 
 ---
 

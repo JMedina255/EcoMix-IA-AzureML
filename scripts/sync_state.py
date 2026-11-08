@@ -307,7 +307,7 @@ def render_markdown_state(status_data: Dict[str, Any], root_dir: Path = PROJECT_
             f"- **Estimador Activo:** `{cloud_dep.get('active_estimator', 'VotingEnsemble')}`",
             f"- **Hash SHA-256 Verificado:** `{cloud_dep.get('model_sha256', '')}`",
             f"- **Latencias Observadas:** Arranque en frío (cold start): ~{cloud_dep.get('cold_start_observed_seconds', 8.4)} s | Inferencia en caliente: ~{cloud_dep.get('typical_warm_latency_ms', 248)} ms",
-            f"- **Costo Incurrido:** USD {cloud_dep.get('cost_incurred_usd', 0.00):.2f} (Dentro de cuota gratuita ACA)"
+            f"- **Costo Computacional ACA:** USD {cloud_dep.get('cost_incurred_usd', 0.00):.2f} (en reposo bajo cuota gratuita de 180k vCPU-s; costo fijo mensual de suscripción: ACR Basic ~USD 5.00/mes)"
         ])
 
     lines.extend([
