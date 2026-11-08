@@ -11,9 +11,9 @@
 - **Identificador del Proyecto:** `ecomix-ia-ml`
 - **Repositorio:** `JMedina255/EcoMix-IA-AzureML`
 - **Rama Principal:** `main`
-- **Fase Actual:** `5.6-B — Consolidación documental y cierre de evaluación`
-- **Próximo Hito Autorizado:** `Fase 5.6-B — Verificación del contenedor de inferencia real y plan de despliegue ACA`
-- **Última Validación Registrada:** `2026-11-06` (Origen: *Azure ML Studio & Workspace Telemetry (Job stoic_pot_x25ht98nv7)*)
+- **Fase Actual:** `6.4 — Cierre Documental, Recuperación de CI y Preparación para Integración MVC`
+- **Próximo Hito Autorizado:** `Fase 6.1 — Integración con Plataforma Web ASP.NET MVC 5 (consumo de API REST en Azure Container Apps)`
+- **Última Validación Registrada:** `2026-11-08` (Origen: *Azure Container Apps & Inferencia Real en la Nube (ca-ecomix-inference-api en chilecentral)*)
 
 ---
 
@@ -30,8 +30,12 @@
 | **4.4** | Evaluacion Independiente del Modelo | ✅ Completado | `src/evaluate_model.py --evaluate` | Job stoic_pot_x25ht98nv7 completado exitosamente en Azure ML (2m 35s). 206 observaciones evaluadas (100% validas): R2 0.9121, RMSE 4.7592 MPa, MAE 3.2822 MPa, NRMSE 0.0673. En subconjunto sin solapamiento (195 muestras): R2 0.9174, RMSE 4.587 MPa. Desglose: 7d (R2 0.8841, RMSE 5.1725 MPa), 28d (R2 0.8235, RMSE 5.5930 MPa). |
 | **4.5** | Generacion de Reportes y Trazabilidad | ✅ Completado | `src/evaluate_model.py (reporting)` | Reporte JSON oficial 'reports/evaluation_wheat_cheese_4swj34tkjn.json' (9,928 bytes) y grafico de correlacion auditados y consolidados. Documento de evaluacion tecnica generado en 'docs/EVALUATION_REPORT.md', especificacion de inferencia para Fase 5 preparada y estado del repositorio sincronizado. |
 | **5** | Servicio de Inferencia ML y API REST (7d y 28d) | ✅ Completado | `src/api/main.py` | Motor de inferencia real VotingEnsemble validado en Azure ML (serene_spinach_sn7khxvkq7) con paridad determinística (|Δ|=0.0 MPa). Microservicio REST FastAPI modular implementado, validado con 18 pruebas y fusionado a main (PR #1, commit 0af7692). |
-| **6** | API de Inferencia (FastAPI) | 🟡 Pendiente | `src/api.py` | No iniciado |
-| **7** | Simulador Interactivo (Streamlit UI) | 🟡 Pendiente | `app.py` | No iniciado |
+| **5.6-A** | Endurecimiento DevSecOps y Preparacion de Contenedor | ✅ Completado | `src/api/config.py` | Blindaje DevSecOps completado: mitigacion de timing attacks (secrets.compare_digest), prohibicion de claves publicas, aislamiento por instancia, control de flujo incremental en middleware, y 15 pruebas de endurecimiento aprobadas (commit 174c6dc). |
+| **5.6-B** | Verificacion de Contenedor y Plan de Despliegue ACA | ✅ Completado | `docker/Dockerfile` | Especificación declarativa de contenedor y manifest docker/azure-container-app-spec.yaml validado localmente con imagen base curada ai-ml-automl:41 y runtime Python 3.10.19 (Reporte docs/PHASE_5_6_B_CONTAINER_VALIDATION_REPORT.md). |
+| **5.6-C** | Despliegue y Validación en la Nube (ACR y Azure Container Apps) | ✅ Completado | `docker/azure-container-app-spec.yaml` | Publicación en ACR crecomixprod.azurecr.io/ecomix-ml-inference:1.0.0 y despliegue exitoso en Azure Container Apps (ca-ecomix-inference-api) en chilecentral con Managed Identity id-ecomix-aca y Scale-to-Zero (minReplicas=0, maxReplicas=1). Inferencia en caliente validada en ~248 ms con paridad exacta contra el VotingEnsemble oficial (Reportes docs/PHASE_5_6_C_2_ACR_PUBLICATION_REPORT.md y docs/PHASE_5_6_C_3_ACA_DEPLOYMENT_REPORT.md). |
+| **6.4** | Cierre Documental, Recuperación de CI y Preparación para Integración MVC | 🔄 En progreso | `scripts/sync_state.py` | Auditoría integral, resolución de compatibilidad de dependencias de testing (httpx==0.28.1 en requirements-dev.txt), refactorización declarativa del sincronizador de estado, reescritura de README.md, creación de docs/INDEX.md y runbook operativo (Reporte docs/PHASE_6_4_D_DOCUMENTATION_CLOSURE.md). |
+| **6.1** | Integración con Plataforma Web ASP.NET MVC 5 | 🟡 Pendiente | `docs/PHASE_6_1_MVC_INTEGRATION_PLAN.md` | Diseño arquitectónico y contratos HTTP/JSON para consumo desde ASP.NET MVC 5 documentados. Pendiente de implementación por el equipo de desarrollo de la plataforma web. |
+| **7** | Simulador Interactivo (Streamlit UI) | 🟡 Pendiente | `app.py` | No iniciado (planificado posterior a la integración MVC). |
 
 ---
 
@@ -52,6 +56,20 @@ Los siguientes datos corresponden a la telemetría oficial de Azure ML Workspace
 - **Entorno de Entrenamiento Original:**  
   Imagen Curada: `mcr.microsoft.com/azureml/curated/ai-ml-automl:41` (Python 3.10.19).
 
+### 3.1 Despliegue Operativo en la Nube (Azure Container Apps)
+
+- **Servicio Cloud:** `Azure Container Apps (ACA)`
+- **Perfil de Cómputo:** `Serverless Consumption`
+- **Aplicación:** `ca-ecomix-inference-api` (Región: `chilecentral`)
+- **Registro e Imagen:** `crecomixprod.azurecr.io/ecomix-ml-inference:1.0.0`
+- **Digest OCI:** `sha256:f50d37251430ad1e42d8df663554e0ea346a8dfffae8799393023d4afbb1d12a`
+- **Identidad Administrada:** `id-ecomix-aca` (Rol RBAC: `AcrPull`)
+- **Dimensionamiento y Escala:** `1.0 vCPU, 2.0 GiB RAM` | `minReplicas = 0, maxReplicas = 1 (Scale-to-Zero)`
+- **Estimador Activo:** `RegressionPipeline (VotingEnsemble real, is_synthetic: false)`
+- **Hash SHA-256 Verificado:** `7eaa501c5eeb60135effb6b5861e736518ce969c47afd53727c2451083ff6388`
+- **Latencias Observadas:** Arranque en frío (cold start): ~8.4 s | Inferencia en caliente: ~248 ms
+- **Costo Incurrido:** USD 0.00 (Dentro de cuota gratuita ACA)
+
 ---
 
 ## 4. Incidencias Técnicas y Mitigaciones
@@ -68,19 +86,26 @@ Los siguientes datos corresponden a la telemetría oficial de Azure ML Workspace
 - **Descripción:** ModuleNotFoundError: No module named 'azure.ai' al ejecutar CommandJob en el contenedor curado oficial de Azure AutoML debido a importaciones top-level del SDK de gestion.
 - **Mitigación comprobada:** Desacoplamiento arquitectonico mediante 'from __future__ import annotations', TYPE_CHECKING y lazy import de azure.ai.ml y azure.identity exclusivamente en funciones cliente (commit 1491940). Verificado exitosamente con job stoic_pot_x25ht98nv7.
 
+### Incidencia ISSUE-CI-01 (Resolved)
+- **Descripción:** Fallo en los 4 jobs de la matriz CI (Run 42295337947) por RuntimeError durante la colección de tests/test_api_hardening.py y tests/test_api_service.py al faltar la dependencia httpx requerida por TestClient en entornos limpios.
+- **Mitigación comprobada:** Inclusión de httpx==0.28.1 en requirements-dev.txt y alineación de fastapi>=0.115.6 y starlette>=0.41.3 en requirements.txt.
+
 ---
 
 ## 5. Pruebas y Cobertura Verificada
 
 - **Suite de Pruebas:** `pytest tests/ -v`
-- **Total de Pruebas:** 88 pruebas automatizadas recopiladas.
-- **Resultado en CI (GitHub Actions) y Clones Limpios:** 85 pasando y 3 omitidas (`pytest.skip`).
-- **Justificación de las 3 Omisiones en CI:** Los modelos binarios entrenados (`models/model.pkl`) no se versionan en Git por gobernanza, seguridad y límite de peso del repositorio. Por ende, las 3 pruebas que requieren deserializar el artefacto real descargado se omiten limpiamente, mientras que las 85 pruebas de firma, contratos de interfaz, desacoplamiento y modelos sintéticos pasan al 100%. En el equipo de desarrollo local con el modelo descargado, pasan las 88 pruebas al 100%.
+- **Total de Pruebas Automatizadas:** 177 pruebas recopiladas.
+- **Resultado en Entorno Local:** 177 passed (100% de la suite automatizada en entorno local con modelo descargado)
+- **Resultado en CI (GitHub Actions):** Pendiente de confirmación por GitHub Actions tras la incorporación de httpx==0.28.1 en requirements-dev.txt (anteriormente 4 jobs fallaron por falta de httpx en el entorno limpio de CI).
 - **Archivos de Prueba:**
+  - `tests/test_api_hardening.py`
+  - `tests/test_api_service.py`
   - `tests/test_azure_eval_job.py`
   - `tests/test_doctor.py`
   - `tests/test_evaluation_control.py`
   - `tests/test_evaluation_runtime_decoupling.py`
+  - `tests/test_inference_schemas_and_validation.py`
   - `tests/test_inspect_and_download.py`
   - `tests/test_model_loading.py`
   - `tests/test_model_runtime.py`
@@ -91,20 +116,23 @@ Los siguientes datos corresponden a la telemetría oficial de Azure ML Workspace
 ## 6. Distinción Entre Hechos Comprobados y Plan de Ejecución
 
 ### Hechos Comprobados y Pasos Completados
-1. **Partición de Datos:** Congelada deterministicamente en 824 registros para entrenamiento y 206 para prueba (`data/processed/concrete_test.csv`, SHA-256 canónico: `6484d9f1493ca19ada7c7ec32ebf0a7015bcb1773605b2de428ff1b5a889026b`).
-2. **Entrenamiento AutoML:** El job `wheat_cheese_4swj34tkjn` produjo un modelo ganador `VotingEnsemble` con NRMSE de `0.05859`.
-3. **Inspección y Descarga del Artefacto (Completadas):** El activo `azureml_wheat_cheese_4swj34tkjn_11_output_mlflow_log_model_873731674:1` se descarga selectivamente mediante `ml_client.models.download` (670,849 bytes).
-4. **Verificación de Firma y Metadatos (Completada):** Se validó que el artefacto declare estrictamente las 8 variables predictoras sin requerir deserialización (`scripts/verify_model_load.py --signature-only`).
-5. **Desacoplamiento de Runtime (Completado):** Eliminación de dependencias del SDK Azure ML (`azure-ai-ml`) en la ruta crítica de inferencia mediante importaciones diferidas (`from __future__ import annotations` y `TYPE_CHECKING`), permitiendo ejecución transparente en contenedores curados limpios.
-6. **Evaluación Independiente en la Nube (Fase 4.4 - Completada):** Job `stoic_pot_x25ht98nv7` ejecutado exitosamente en Azure ML sobre clúster `cpu-cluster-ecomix` (`Standard_DS3_v2`) en 2m 35s. 206 observaciones evaluadas (100% exitosas) obteniendo: $R^2 = 0.9121$, RMSE = 4.7592 MPa, MAE = 3.2822 MPa, NRMSE = 0.0673. En subconjunto sin solapamiento (195 muestras): $R^2 = 0.9174$, RMSE = 4.587 MPa. A 7d: $R^2 = 0.8841$, RMSE = 5.1725 MPa. A 28d: $R^2 = 0.8235$, RMSE = 5.5930 MPa.
-7. **Consolidación de Reportes y Trazabilidad (Fase 4.5 - Completada):** Métricas oficiales almacenadas en `reports/evaluation_wheat_cheese_4swj34tkjn.json`, gráfico de correlación en `reports/evaluation_wheat_cheese_4swj34tkjn_plot.png` e informe técnico integral en `docs/EVALUATION_REPORT.md`.
-8. **Suite Automatizada de Pruebas:** 88 pruebas automatizadas recopiladas (85 pasando y 3 omitidas en CI por exclusión de binarios en Git; 100% pasando localmente con modelo descargado).
+1. Partición de datos determinística 80/20 (824 train, 206 test) con SHA-256 canónico (6484d9f1...)
+2. Entrenamiento AutoML exitoso en Azure ML con VotingEnsemble como ganador (NRMSE = 0.05859)
+3. Descarga selectiva segura vía Model Asset sin descargar el snapshot completo del experimento (670,849 bytes)
+4. Verificación de firma y 8 variables de entrada con verificación offline
+5. Desacoplamiento de runtime con lazy imports del SDK de Azure ML
+6. Evaluación independiente en Azure ML (Job stoic_pot_x25ht98nv7): R² = 0.9121, RMSE = 4.7592 MPa, NRMSE = 0.0673
+7. Consolidación de reportes de evaluación en JSON oficial, visualizaciones y documentación técnica
+8. Servicio de inferencia determinística dual a 7 y 28 días con paridad exacta contra el modelo ganador
+9. Blindaje DevSecOps de API REST FastAPI: RFC 7807, mitigación de timing attacks, sanitización X-Request-ID, Content-Length y Content-Type control
+10. Construcción y verificación local del contenedor Docker con runtime curado de Azure AutoML (Python 3.10.19)
+11. Publicación de imagen certificada en Azure Container Registry (crecomixprod.azurecr.io/ecomix-ml-inference:1.0.0)
+12. Despliegue operativo en Azure Container Apps (chilecentral) con Managed Identity (id-ecomix-aca) y política Scale-to-Zero
+13. Validación de inferencia real en la nube con respuesta exitosa (21.96 MPa a 7d y 31.15 MPa a 28d) y latencia en caliente de ~248 ms
 
 ### Plan de Ejecución y Tareas Pendientes
-1. **Fase 5 — Módulo de Inferencia EcoMix (7d y 28d + Ahorro CO2):**
-   - Implementación de `src/inference.py` para consumo desde la plataforma web ASP.NET MVC 5.
-   - Validación de dominios de entrada para las 8 variables predictoras según límites del dataset UCI 165.
-   - Estimación dual a 7 y 28 días con cálculo analítico de reducción de huella de carbono (kg CO2e/m³) y costo (S/./m³).
-   - Incorporación de márgenes de seguridad de sobrediseño inspirados en ACI PRC-211.1-22 y ACI 214R debido a la dispersión observada a 28 días.
-2. **Fase 6 — API de Inferencia (FastAPI):** Exposición de microservicio REST autenticado y desacoplado.
-3. **Fase 7 — Simulador Interactivo (Streamlit UI):** Interfaz para ingeniería de mezclas ecológicas.
+1. Confirmación de ejecución verde en GitHub Actions tras corrección de dependencias de testing
+2. Aprobación y fusión del PR de cierre documental hacia la rama main
+3. Fase 6.1 — Implementación del cliente de integración HTTP en ASP.NET MVC 5 (consumo de Azure Container Apps)
+4. Implementación del cálculo analítico de optimización de costos (S/./m³) y huella de carbono (kg CO2e/m³) en la capa de negocio
+5. Fase 7 — Desarrollo de simulador interactivo de mezclas ecológicas (Streamlit UI)
