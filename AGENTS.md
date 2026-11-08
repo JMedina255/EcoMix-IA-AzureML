@@ -130,10 +130,11 @@ Si opera en un agente que no carga automáticamente este contexto:
 
 ## 6. Estado Actual y Próximo Hito Autorizado
 
-* **Fase Actual:** **Fase 6.4 — Cierre Documental, Recuperación de CI y Preparación para Integración MVC** (en curso).
+* **Fase Actual:** **Fase 6.4 — Cierre Documental Definitivo y Congelamiento del Repositorio ML** (completada y auditada).
 * **Hitos Completados:**
   - Fases 1 a 4.5: Pipeline AutoML en Azure ML, evaluación independiente en nube ($R^2 = 0.9121$, $\text{RMSE} = 4.7592\text{ MPa}$) y consolidación de reportes.
   - Fase 5: Servicio de inferencia dual 7d/28d y API REST FastAPI con paridad determinística ($|\Delta| = 0.0\text{ MPa}$).
   - Fase 5.6-A/B/C: Endurecimiento DevSecOps, contenedorización y despliegue en Azure Container Apps (`ca-ecomix-inference-api` en `chilecentral`) con Managed Identity (`id-ecomix-aca`) y latencia en caliente de ~248 ms.
+  - Fase 6.4: Estabilización de CI en GitHub Actions (4 jobs en verde, Run 42527034654 posterior al merge `5d12792`), saneamiento de contratos JSON, runbook operativo y cierre documental integral.
 * **Próximo Hito Técnico Autorizado:**
-  - **Fase 6.1 — Integración con Plataforma Web ASP.NET MVC 5:** Implementación del cliente HTTP en C# / .NET para consumo del endpoint en Azure Container Apps desde la plataforma web institucional.
+  - **Repositorio ML Congelado y en Producción:** Este repositorio actúa como referencia técnica, pipeline reproducible y microservicio en Azure Container Apps. La **Fase 6.1 (Integración con Plataforma Web ASP.NET MVC 5)** y la optimización analítica de costos y $\text{CO}_2$ se implementan exclusivamente en el repositorio cliente externo (`joeguillenl/EcomixIA`).

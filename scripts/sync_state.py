@@ -198,7 +198,8 @@ def render_markdown_state(status_data: Dict[str, Any], root_dir: Path = PROJECT_
         "completed": "✅ Completado",
         "pending": "🟡 Pendiente",
         "in_progress": "🔄 En progreso",
-        "blocked": "⛔ Bloqueado"
+        "blocked": "⛔ Bloqueado",
+        "external_subsequent": "🌐 Trabajo Posterior (Externo)"
     }
 
     curr_phase_key = f"fase_{curr_phase.replace('.', '_').replace('-', '_')}"

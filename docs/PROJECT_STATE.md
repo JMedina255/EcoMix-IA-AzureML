@@ -11,8 +11,8 @@
 - **Identificador del Proyecto:** `ecomix-ia-ml`
 - **Repositorio:** `JMedina255/EcoMix-IA-AzureML`
 - **Rama Principal:** `main`
-- **Fase Actual:** `6.4 — Cierre Documental, Recuperación de CI y Preparación para Integración MVC`
-- **Próximo Hito Autorizado:** `Fase 6.1 — Integración con Plataforma Web ASP.NET MVC 5 (consumo de API REST en Azure Container Apps)`
+- **Fase Actual:** `6.4 — Cierre Documental, Recuperación de CI y Congelamiento del Repositorio ML`
+- **Próximo Hito Autorizado:** `Cierre definitivo del repositorio ML. Trabajo posterior del sistema general: Integración con Plataforma Web ASP.NET MVC 5 en repositorio externo (joeguillenl/EcomixIA)`
 - **Última Validación Registrada:** `2026-11-08` (Origen: *Azure Container Apps & Inferencia Real en la Nube (ca-ecomix-inference-api en chilecentral)*)
 
 ---
@@ -33,9 +33,9 @@
 | **5.6-A** | Endurecimiento DevSecOps y Preparacion de Contenedor | ✅ Completado | `src/api/config.py` | Blindaje DevSecOps completado: mitigacion de timing attacks (secrets.compare_digest), prohibicion de claves publicas, aislamiento por instancia, control de flujo incremental en middleware, y 15 pruebas de endurecimiento aprobadas (commit 174c6dc). |
 | **5.6-B** | Verificacion de Contenedor y Plan de Despliegue ACA | ✅ Completado | `docker/Dockerfile` | Especificación declarativa de contenedor y manifest docker/azure-container-app-spec.yaml validado localmente con imagen base curada ai-ml-automl:41 y runtime Python 3.10.19 (Reporte docs/PHASE_5_6_B_CONTAINER_VALIDATION_REPORT.md). |
 | **5.6-C** | Despliegue y Validación en la Nube (ACR y Azure Container Apps) | ✅ Completado | `docker/azure-container-app-spec.yaml` | Publicación en ACR crecomixprod.azurecr.io/ecomix-ml-inference:1.0.0 y despliegue exitoso en Azure Container Apps (ca-ecomix-inference-api) en chilecentral con Managed Identity id-ecomix-aca y Scale-to-Zero (minReplicas=0, maxReplicas=1). Inferencia en caliente validada en ~248 ms con paridad exacta contra el VotingEnsemble oficial (Reportes docs/PHASE_5_6_C_2_ACR_PUBLICATION_REPORT.md y docs/PHASE_5_6_C_3_ACA_DEPLOYMENT_REPORT.md). |
-| **6.4** | Cierre Documental, Recuperación de CI y Preparación para Integración MVC | 🔄 En progreso | `scripts/sync_state.py` | Auditoría integral, resolución de compatibilidad de dependencias de testing (httpx==0.28.1 en requirements-dev.txt), refactorización declarativa del sincronizador de estado, reescritura de README.md, creación de docs/INDEX.md y runbook operativo (Reporte docs/PHASE_6_4_D_DOCUMENTATION_CLOSURE.md). |
-| **6.1** | Integración con Plataforma Web ASP.NET MVC 5 | 🟡 Pendiente | `docs/PHASE_6_1_MVC_INTEGRATION_PLAN.md` | Diseño arquitectónico y contratos HTTP/JSON para consumo desde ASP.NET MVC 5 documentados. Pendiente de implementación por el equipo de desarrollo de la plataforma web. |
-| **7** | Simulador Interactivo (Streamlit UI) | 🟡 Pendiente | `app.py` | No iniciado (planificado posterior a la integración MVC). |
+| **6.4** | Cierre Documental, Recuperación de CI y Congelamiento del Repositorio ML | ✅ Completado | `scripts/sync_state.py` | Cierre documental completado, CI recuperado al 100% (Run 42527034654 en verde, 167 pasadas / 10 omitidas por job), contratos JSON certificados, diagrama Mermaid centrado en ML y repositorio congelado como referencia técnica independiente (PR #4, commit 5d12792). |
+| **6.1** | Integración con Plataforma Web ASP.NET MVC 5 (Repositorio Externo) | 🌐 Trabajo Posterior (Externo) | `docs/PHASE_6_1_MVC_INTEGRATION_PLAN.md` | Diseño arquitectónico y contratos HTTP/JSON para consumo desde ASP.NET MVC 5 documentados. Trabajo posterior a ejecutarse exclusivamente en el repositorio externo joeguillenl/EcomixIA. |
+| **7** | Simulador Interactivo (Streamlit UI) | 🌐 Trabajo Posterior (Externo) | `app.py` | Prototipo interactivo complementario planificado como módulo independiente posterior fuera del alcance del repositorio de ML. |
 
 ---
 
@@ -96,8 +96,8 @@ Los siguientes datos corresponden a la telemetría oficial de Azure ML Workspace
 
 - **Suite de Pruebas:** `pytest tests/ -v`
 - **Total de Pruebas Automatizadas:** 177 pruebas recopiladas.
-- **Resultado en Entorno Local:** 177 passed (100% de la suite automatizada en entorno local con modelo descargado)
-- **Resultado en CI (GitHub Actions):** Pendiente de confirmación por GitHub Actions tras la incorporación de httpx==0.28.1 en requirements-dev.txt (anteriormente 4 jobs fallaron por falta de httpx en el entorno limpio de CI).
+- **Resultado en Entorno Local:** 177 passed (100% de la suite automatizada en entorno local con modelo descargado en 84.03s)
+- **Resultado en CI (GitHub Actions):** Aprobado (100% verde en GitHub Actions Run 42527034654 posterior al merge 5d12792: 4 jobs aprobados con 167 pruebas pasadas y 10 omitidas por ausencia de binarios pesados en CI limpio).
 - **Archivos de Prueba:**
   - `tests/test_api_hardening.py`
   - `tests/test_api_service.py`
@@ -129,10 +129,10 @@ Los siguientes datos corresponden a la telemetría oficial de Azure ML Workspace
 11. Publicación de imagen certificada en Azure Container Registry (crecomixprod.azurecr.io/ecomix-ml-inference:1.0.0)
 12. Despliegue operativo en Azure Container Apps (chilecentral) con Managed Identity (id-ecomix-aca) y política Scale-to-Zero
 13. Validación de inferencia real en la nube con respuesta exitosa (21.96 MPa a 7d y 31.15 MPa a 28d) y latencia en caliente de ~248 ms
+14. Recuperación y estabilización de CI en GitHub Actions: resolución de dependencia httpx y manejo graceful de skips en runners limpios (167 aprobadas, 10 omitidas en 4 jobs, Run 42527034654)
+15. Saneamiento y congelamiento documental definitivo: contratos JSON en README, diagrama de arquitectura Mermaid centrado en ML, runbook operativo de inferencia y directorio maestro docs/INDEX.md
 
 ### Plan de Ejecución y Tareas Pendientes
-1. Confirmación de ejecución verde en GitHub Actions tras corrección de dependencias de testing
-2. Aprobación y fusión del PR de cierre documental hacia la rama main
-3. Fase 6.1 — Implementación del cliente de integración HTTP en ASP.NET MVC 5 (consumo de Azure Container Apps)
-4. Implementación del cálculo analítico de optimización de costos (S/./m³) y huella de carbono (kg CO2e/m³) en la capa de negocio
-5. Fase 7 — Desarrollo de simulador interactivo de mezclas ecológicas (Streamlit UI)
+1. Trabajo posterior (Repositorio Web joeguillenl/EcomixIA): Integración del cliente HTTP en ASP.NET MVC 5 con consumo de Azure Container Apps
+2. Trabajo posterior (Repositorio Web joeguillenl/EcomixIA): Implementación del cálculo analítico de optimización de costos (S/./m³) y huella de carbono (kg CO2e/m³) en la capa de negocio
+3. Trabajo complementario posterior: Desarrollo de simulador interactivo de mezclas ecológicas (Streamlit UI)
